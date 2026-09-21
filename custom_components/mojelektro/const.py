@@ -1,11 +1,58 @@
-# Configuration for MojElektroApi
-DOMAIN = "mojelektro"
-VERSION = "0.2.7"
-CONF_TOKEN = "token"  # Adjusted from TOKEN to CONF_TOKEN
-CONF_METER_ID = "meter_id"  # Adjusted from METER_ID to CONF_METER_ID
-CONF_DECIMAL = "decimal"
+"""Constants for the Moj Elektro integration."""
 
-SETUP_TAG_BLOCKS_ARRAY = '[{"oznaka": "blok_1", "sensor": "daily_input_blok_1"}, {"oznaka": "blok_2", "sensor": "daily_input_blok_2"}, {"oznaka": "blok_3", "sensor": "daily_input_blok_3"}, {"oznaka": "blok_4", "sensor": "daily_input_blok_4"}, {"oznaka": "blok_5", "sensor": "daily_input_blok_5"}]'
-SETUP_TAG_15_ARRAY = '[{"oznaka": "A+", "sensor": "15min_input"}, {"oznaka": "A-", "sensor": "15min_output"}]'
-SETUP_TAG_ARRAY = '[{"oznaka": "A+_T0", "sensor": "daily_input"}, {"oznaka": "A+_T1", "sensor": "daily_input_peak"}, {"oznaka": "A+_T2", "sensor": "daily_input_offpeak"}, {"oznaka": "A-_T0", "sensor": "daily_output"}, {"oznaka": "A-_T1", "sensor": "daily_output_peak"}, {"oznaka": "A-_T2", "sensor": "daily_output_offpeak"}]'
-READING_TYPE_ARRAY = '[ { "naziv": "Prejeta 15 minutna delovna energija", "opis": "15 minutna energija, A+, kWh", "oznaka": "A+", "perioda": "15 min", "readingType": "32.0.2.4.1.2.12.0.0.0.0.0.0.0.0.3.72.0", "readingTypeBrezObracuna": "0.0.2.4.1.2.12.0.0.0.0.0.0.0.0.3.72.0", "readingTypeObracun": "8.0.2.4.1.2.12.0.0.0.0.0.0.0.0.3.72.0", "tip": "delovna prejem", "vrsta": "KOLICINA" }, { "naziv": "Oddana 15 minutna delovna energija", "opis": "15 minutna energija, A-, kWh", "oznaka": "A-", "perioda": "15 min", "readingType": "32.0.2.4.19.2.12.0.0.0.0.0.0.0.0.3.72.0", "readingTypeBrezObracuna": "0.0.2.4.19.2.12.0.0.0.0.0.0.0.0.3.72.0", "readingTypeObracun": "8.0.2.4.19.2.12.0.0.0.0.0.0.0.0.3.72.0", "tip": "delovna oddaja", "vrsta": "KOLICINA" }, { "naziv": "Prejeta 15 minutna jalova energija", "opis": "15 minutna energija, R+, kVArh", "oznaka": "R+", "perioda": "15 min", "readingType": "32.0.2.4.1.2.12.0.0.0.0.0.0.0.0.3.73.0", "readingTypeBrezObracuna": "0.0.2.4.1.2.12.0.0.0.0.0.0.0.0.3.73.0", "readingTypeObracun": "8.0.2.4.1.2.12.0.0.0.0.0.0.0.0.3.73.0", "tip": "jalova prejem", "vrsta": "KOLICINA" }, { "naziv": "Oddana 15 minutna jalova energija", "opis": "15 minutna energija, R-, kVArh", "oznaka": "R-", "perioda": "15 min", "readingType": "32.0.2.4.19.2.12.0.0.0.0.0.0.0.0.3.73.0", "readingTypeBrezObracuna": "0.0.2.4.19.2.12.0.0.0.0.0.0.0.0.3.73.0", "readingTypeObracun": "8.0.2.4.19.2.12.0.0.0.0.0.0.0.0.3.73.0", "tip": "jalova oddaja", "vrsta": "KOLICINA" }, { "naziv": "Prejeta 15 minutna delovna moč", "opis": "15 minutna moč, A+, kW", "oznaka": "P+", "perioda": "15 min", "readingType": "32.0.2.4.1.2.37.0.0.0.0.0.0.0.0.3.38.0", "readingTypeBrezObracuna": "0.0.2.4.1.2.37.0.0.0.0.0.0.0.0.3.38.0", "readingTypeObracun": "8.0.2.4.1.2.37.0.0.0.0.0.0.0.0.3.38.0", "tip": "delovna prejem", "vrsta": "KOLICINA" }, { "naziv": "Oddana 15 minutna delovna moč", "opis": "15 minutna moč, A-, kW", "oznaka": "P-", "perioda": "15 min", "readingType": "32.0.2.4.19.2.37.0.0.0.0.0.0.0.0.3.38.0", "readingTypeBrezObracuna": "0.0.2.4.19.2.37.0.0.0.0.0.0.0.0.3.38.0", "readingTypeObracun": "8.0.2.4.19.2.37.0.0.0.0.0.0.0.0.3.38.0", "tip": "delovna oddaja", "vrsta": "KOLICINA" }, { "naziv": "Prejeta 15 minutna jalova moč", "opis": "15 minutna moč, R+, kVAr", "oznaka": "Q+", "perioda": "15 min", "readingType": "32.0.2.4.1.2.37.0.0.0.0.0.0.0.0.3.63.0", "readingTypeBrezObracuna": "0.0.2.4.1.2.37.0.0.0.0.0.0.0.0.3.63.0", "readingTypeObracun": "8.0.2.4.1.2.37.0.0.0.0.0.0.0.0.3.63.0", "tip": "jalova prejem", "vrsta": "KOLICINA" }, { "naziv": "Oddana 15 minutna jalova moč", "opis": "15 minutna moč, R-, kVAr", "oznaka": "Q-", "perioda": "15 min", "readingType": "32.0.2.4.19.2.37.0.0.0.0.0.0.0.0.3.63.0", "readingTypeBrezObracuna": "0.0.2.4.19.2.37.0.0.0.0.0.0.0.0.3.63.0", "readingTypeObracun": "8.0.2.4.19.2.37.0.0.0.0.0.0.0.0.3.63.0", "tip": "jalova oddaja", "vrsta": "KOLICINA" }, { "naziv": "Prejeta delovna energija ET", "opis": "24 urno stanje, A+, kWh, T0", "oznaka": "A+_T0", "perioda": "24 h", "readingType": "32.0.4.1.1.2.12.0.0.0.0.0.0.0.0.3.72.0", "readingTypeBrezObracuna": "0.0.4.1.1.2.12.0.0.0.0.0.0.0.0.3.72.0", "readingTypeObracun": "8.0.4.1.1.2.12.0.0.0.0.0.0.0.0.3.72.0", "tip": "delovna prejem ET", "vrsta": "STANJE" }, { "naziv": "Prejeta delovna energija VT", "opis": "24 urno stanje, A+, kWh, T1", "oznaka": "A+_T1", "perioda": "24 h", "readingType": "32.0.4.1.1.2.12.0.0.0.0.1.0.0.0.3.72.0", "readingTypeBrezObracuna": "0.0.4.1.1.2.12.0.0.0.0.1.0.0.0.3.72.0", "readingTypeObracun": "8.0.4.1.1.2.12.0.0.0.0.1.0.0.0.3.72.0", "tip": "delovna prejem VT", "vrsta": "STANJE" }, { "naziv": "Prejeta delovna energija MT", "opis": "24 urno stanje, A+, kWh, T2", "oznaka": "A+_T2", "perioda": "24 h", "readingType": "32.0.4.1.1.2.12.0.0.0.0.2.0.0.0.3.72.0", "readingTypeBrezObracuna": "0.0.4.1.1.2.12.0.0.0.0.2.0.0.0.3.72.0", "readingTypeObracun": "8.0.4.1.1.2.12.0.0.0.0.2.0.0.0.3.72.0", "tip": "delovna prejem MT", "vrsta": "STANJE" }, { "naziv": "Oddana delovna energija ET", "opis": "24 urno stanje, A-, kWh, T0", "oznaka": "A-_T0", "perioda": "24 h", "readingType": "32.0.4.1.19.2.12.0.0.0.0.0.0.0.0.3.72.0", "readingTypeBrezObracuna": "0.0.4.1.19.2.12.0.0.0.0.0.0.0.0.3.72.0", "readingTypeObracun": "8.0.4.1.19.2.12.0.0.0.0.0.0.0.0.3.72.0", "tip": "delovna oddaja ET", "vrsta": "STANJE" }, { "naziv": "Oddana delovna energija VT", "opis": "24 urno stanje, A-, kWh, T1", "oznaka": "A-_T1", "perioda": "24 h", "readingType": "32.0.4.1.19.2.12.0.0.0.0.1.0.0.0.3.72.0", "readingTypeBrezObracuna": "0.0.4.1.19.2.12.0.0.0.0.1.0.0.0.3.72.0", "readingTypeObracun": "8.0.4.1.19.2.12.0.0.0.0.1.0.0.0.3.72.0", "tip": "delovna oddaja VT", "vrsta": "STANJE" }, { "naziv": "Oddana delovna energija MT", "opis": "24 urno stanje, A-, kWh, T2", "oznaka": "A-_T2", "perioda": "24 h", "readingType": "32.0.4.1.19.2.12.0.0.0.0.2.0.0.0.3.72.0", "readingTypeBrezObracuna": "0.0.4.1.19.2.12.0.0.0.0.2.0.0.0.3.72.0", "readingTypeObracun": "8.0.4.1.19.2.12.0.0.0.0.2.0.0.0.3.72.0", "tip": "delovna oddaja MT", "vrsta": "STANJE" }, { "naziv": "Prejeta jalova energija ET", "opis": "24 urno stanje, R+, kVArh, T0", "oznaka": "R+_T0", "perioda": "24 h", "readingType": "32.0.4.1.1.2.12.0.0.0.0.0.0.0.0.3.73.0", "readingTypeBrezObracuna": "0.0.4.1.1.2.12.0.0.0.0.0.0.0.0.3.73.0", "readingTypeObracun": "8.0.4.1.1.2.12.0.0.0.0.0.0.0.0.3.73.0", "tip": "jalova prejem ET", "vrsta": "STANJE" }, { "naziv": "Prejeta jalova energija VT", "opis": "24 urno stanje, R+, kVArh, T1", "oznaka": "R+_T1", "perioda": "24 h", "readingType": "32.0.4.1.1.2.12.0.0.0.0.1.0.0.0.3.73.0", "readingTypeBrezObracuna": "0.0.4.1.1.2.12.0.0.0.0.1.0.0.0.3.73.0", "readingTypeObracun": "8.0.4.1.1.2.12.0.0.0.0.1.0.0.0.3.73.0", "tip": "jalova prejem VT", "vrsta": "STANJE" }, { "naziv": "Prejeta jalova energija MT", "opis": "24 urno stanje, R+, kVArh, T2", "oznaka": "R+_T2", "perioda": "24 h", "readingType": "32.0.4.1.1.2.12.0.0.0.0.2.0.0.0.3.73.0", "readingTypeBrezObracuna": "0.0.4.1.1.2.12.0.0.0.0.2.0.0.0.3.73.0", "readingTypeObracun": "8.0.4.1.1.2.12.0.0.0.0.2.0.0.0.3.73.0", "tip": "jalova prejem MT", "vrsta": "STANJE" }, { "naziv": "Oddana jalova energija ET", "opis": "24 urno stanje, R-, kVArh, T0", "oznaka": "R-_T0", "perioda": "24 h", "readingType": "32.0.4.1.19.2.12.0.0.0.0.0.0.0.0.3.73.0", "readingTypeBrezObracuna": "0.0.4.1.19.2.12.0.0.0.0.0.0.0.0.3.73.0", "readingTypeObracun": "8.0.4.1.19.2.12.0.0.0.0.0.0.0.0.3.73.0", "tip": "jalova oddaja ET", "vrsta": "STANJE" }, { "naziv": "Oddana jalova energija VT", "opis": "24 urno stanje, R-, kVArh, T1", "oznaka": "R-_T1", "perioda": "24 h", "readingType": "32.0.4.1.19.2.12.0.0.0.0.1.0.0.0.3.73.0", "readingTypeBrezObracuna": "0.0.4.1.19.2.12.0.0.0.0.1.0.0.0.3.73.0", "readingTypeObracun": "8.0.4.1.19.2.12.0.0.0.0.1.0.0.0.3.73.0", "tip": "jalova oddaja VT", "vrsta": "STANJE" }, { "naziv": "Oddana jalova energija MT", "opis": "24 urno stanje, R-, kVArh, T2", "oznaka": "R-_T2", "perioda": "24 h", "readingType": "32.0.4.1.19.2.12.0.0.0.0.2.0.0.0.3.73.0", "readingTypeBrezObracuna": "0.0.4.1.19.2.12.0.0.0.0.2.0.0.0.3.73.0", "readingTypeObracun": "8.0.4.1.19.2.12.0.0.0.0.2.0.0.0.3.73.0", "tip": "jalova oddaja MT", "vrsta": "STANJE" } ]'
+DOMAIN = "mojelektro"
+VERSION = "0.3.0"
+
+API_BASE_URL = "https://api.informatika.si/mojelektro/v1"
+
+CONF_TOKEN = "token"
+CONF_METER_ID = "meter_id"
+CONF_DECIMAL = "decimal"
+CONF_UPDATE_INTERVAL = "update_interval_minutes"
+CONF_LOOKBACK_DAYS = "lookback_days"
+CONF_ENABLE_15MIN = "enable_15min"
+CONF_ENABLE_DAILY = "enable_daily"
+CONF_ENABLE_TARIFF_BLOCKS = "enable_tariff_blocks"
+CONF_ENABLE_CONTRACTED_POWER = "enable_contracted_power"
+
+DEFAULT_DECIMAL = 4
+DEFAULT_UPDATE_INTERVAL = 15
+DEFAULT_LOOKBACK_DAYS = 2
+DEFAULT_ENABLE_15MIN = True
+DEFAULT_ENABLE_DAILY = True
+DEFAULT_ENABLE_TARIFF_BLOCKS = True
+DEFAULT_ENABLE_CONTRACTED_POWER = True
+
+MIN_UPDATE_INTERVAL = 5
+MAX_UPDATE_INTERVAL = 180
+MIN_LOOKBACK_DAYS = 1
+MAX_LOOKBACK_DAYS = 7
+
+# Stable Home Assistant sensor keys mapped to the semantic register labels
+# returned by GET /reading-type. The opaque readingType IDs themselves are
+# intentionally not stored in the integration and are discovered at runtime.
+FIFTEEN_MINUTE_SENSORS = {
+    "A+": "15min_input",
+    "A-": "15min_output",
+}
+
+DAILY_SENSORS = {
+    "A+_T0": "daily_input",
+    "A+_T1": "daily_input_peak",
+    "A+_T2": "daily_input_offpeak",
+    "A-_T0": "daily_output",
+    "A-_T1": "daily_output_peak",
+    "A-_T2": "daily_output_offpeak",
+}
+
+TARIFF_BLOCK_SENSORS = {
+    1: "daily_input_blok_1",
+    2: "daily_input_blok_2",
+    3: "daily_input_blok_3",
+    4: "daily_input_blok_4",
+    5: "daily_input_blok_5",
+}
+
+CONTRACTED_POWER_SENSORS = tuple(
+    f"casovni_blok_{block_number}" for block_number in range(1, 6)
+)
