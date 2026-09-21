@@ -109,9 +109,31 @@ class MojElektroApi:
                 # Fetch časovni blok values
                 casovni_blok = await self.get_casovni_blok()
                 sensor_return.update(casovni_blok)
-                for block_number in range(1, 6):
-                    sensor_return.setdefault(f"casovni_blok_{block_number}", None)
 
+                # Keep the entity set stable even when the API temporarily
+                # omits one reading type. Preserve the previous value when
+                # available; otherwise expose the entity as unavailable.
+                expected_sensors = []
+                for item in json.loads(SETUP_TAG_15_ARRAY):
+                    expected_sensors.append(item["sensor"])
+                for item in json.loads(SETUP_TAG_ARRAY):
+                    expected_sensors.append(item["sensor"])
+                    expected_sensors.append(
+                        item["sensor"].replace("daily_", "monthly_", 1)
+                    )
+                for item in json.loads(SETUP_TAG_BLOCKS_ARRAY):
+                    expected_sensors.append(item["sensor"])
+                expected_sensors.extend(
+                    f"casovni_blok_{block_number}" for block_number in range(1, 6)
+                )
+
+                for sensor_name in expected_sensors:
+                    previous_value = (
+                        self.last_data.get(sensor_name)
+                        if self.last_data is not None
+                        else None
+                    )
+                    sensor_return.setdefault(sensor_name, previous_value)
 
             self.last_data = sensor_return
             return sensor_return
