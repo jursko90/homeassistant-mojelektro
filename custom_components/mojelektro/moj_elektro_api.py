@@ -14,9 +14,11 @@ from .const import (
     DEFAULT_ENABLE_15MIN,
     DEFAULT_ENABLE_CONTRACTED_POWER,
     DEFAULT_ENABLE_DAILY,
+    DEFAULT_ENABLE_TOTAL,
     DEFAULT_ENABLE_TARIFF_BLOCKS,
     DEFAULT_LOOKBACK_DAYS,
     FIFTEEN_MINUTE_SENSORS,
+    TOTAL_REGISTER_SENSORS,
     TARIFF_BLOCK_SENSORS,
 )
 
@@ -52,6 +54,7 @@ class MojElektroApi:
         lookback_days: int = DEFAULT_LOOKBACK_DAYS,
         enable_15min: bool = DEFAULT_ENABLE_15MIN,
         enable_daily: bool = DEFAULT_ENABLE_DAILY,
+        enable_total: bool = DEFAULT_ENABLE_TOTAL,
         enable_tariff_blocks: bool = DEFAULT_ENABLE_TARIFF_BLOCKS,
         enable_contracted_power: bool = DEFAULT_ENABLE_CONTRACTED_POWER,
     ) -> None:
@@ -62,6 +65,7 @@ class MojElektroApi:
         self.lookback_days = int(lookback_days)
         self.enable_15min = bool(enable_15min)
         self.enable_daily = bool(enable_daily)
+        self.enable_total = bool(enable_total)
         self.enable_tariff_blocks = bool(enable_tariff_blocks)
         self.enable_contracted_power = bool(enable_contracted_power)
 
@@ -69,6 +73,8 @@ class MojElektroApi:
         self._reading_types_by_tag: dict[str, dict[str, Any]] | None = None
         self._tag_by_reading_type: dict[str, str] = {}
         self._reading_qualities: list[dict[str, Any]] | None = None
+        self._reading_quality_descriptions: dict[str, str] = {}
+        self.last_reading_metadata: dict[str, dict[str, Any]] = {}
 
     @property
     def headers(self) -> dict[str, str]:
@@ -175,6 +181,11 @@ class MojElektroApi:
         self._reading_qualities = [
             item for item in payload if isinstance(item, dict)
         ]
+        self._reading_quality_descriptions = {
+            str(item["readingQualityType"]): str(item.get("description", ""))
+            for item in self._reading_qualities
+            if item.get("readingQualityType")
+        }
         return self._reading_qualities
 
     async def get_meter_site(self) -> dict[str, Any]:
@@ -296,7 +307,7 @@ class MojElektroApi:
                 end_date=today,
             )
 
-        if self.enable_daily:
+        if self.enable_daily or self.enable_total:
             daily_start = (
                 today - timedelta(days=1)
                 if today.day == 1
@@ -323,6 +334,14 @@ class MojElektroApi:
                     daily_data,
                     DAILY_SENSORS,
                     interval=False,
+                )
+            )
+
+        if self.enable_total:
+            sensor_return.update(
+                self.total_registers_output(
+                    daily_data,
+                    TOTAL_REGISTER_SENSORS,
                 )
             )
 
@@ -355,6 +374,9 @@ class MojElektroApi:
                 names.append(sensor)
                 names.append(sensor.replace("daily_", "monthly_", 1))
 
+        if self.enable_total:
+            names.extend(TOTAL_REGISTER_SENSORS.values())
+
         if self.enable_tariff_blocks:
             names.extend(TARIFF_BLOCK_SENSORS.values())
 
@@ -377,6 +399,53 @@ class MojElektroApi:
             (item for item in readings if isinstance(item, dict)),
             key=lambda item: str(item.get("timestamp", "")),
         )
+
+    def _quality_details(self, *readings: dict[str, Any]) -> list[dict[str, str]]:
+        """Return de-duplicated reading-quality codes and descriptions."""
+        details: dict[str, dict[str, str]] = {}
+        for reading in readings:
+            qualities = reading.get("readingQualities") or []
+            if not isinstance(qualities, list):
+                continue
+            for quality in qualities:
+                if not isinstance(quality, dict):
+                    continue
+                code = quality.get("readingQualityType")
+                if not code:
+                    continue
+                code = str(code)
+                detail = {"code": code}
+                description = self._reading_quality_descriptions.get(code)
+                if description:
+                    detail["description"] = description
+                details[code] = detail
+        return list(details.values())
+
+    def _remember_reading_metadata(
+        self,
+        sensor: str,
+        *readings: dict[str, Any],
+        last_reset: str | None = None,
+        source_date: str | None = None,
+    ) -> None:
+        """Remember non-sensitive source metadata for diagnostics/state handling."""
+        metadata: dict[str, Any] = {}
+        timestamps = [
+            str(reading.get("timestamp"))
+            for reading in readings
+            if reading.get("timestamp")
+        ]
+        if timestamps:
+            metadata["source_timestamp"] = max(timestamps)
+        if source_date:
+            metadata["source_date"] = source_date
+        if last_reset:
+            metadata["last_reset"] = last_reset
+
+        quality_details = self._quality_details(*readings)
+        metadata["reading_valid"] = not quality_details
+        metadata["reading_qualities"] = quality_details
+        self.last_reading_metadata[sensor] = metadata
 
     def sensors_output(
         self,
@@ -407,10 +476,16 @@ class MojElektroApi:
                 continue
 
             if interval:
+                latest = readings[-1]
                 try:
                     sensor_output[sensor] = round(
-                        float(readings[-1]["value"]),
+                        float(latest["value"]),
                         self.decimal,
+                    )
+                    self._remember_reading_metadata(
+                        sensor,
+                        latest,
+                        last_reset=str(latest.get("timestamp") or "") or None,
                     )
                 except (KeyError, TypeError, ValueError):
                     _LOGGER.debug("Invalid latest interval reading for %s", sensor)
@@ -432,12 +507,55 @@ class MojElektroApi:
                 latest_value - previous_value,
                 self.decimal,
             )
-            sensor_output[sensor.replace("daily_", "monthly_", 1)] = round(
+            monthly_sensor = sensor.replace("daily_", "monthly_", 1)
+            sensor_output[monthly_sensor] = round(
                 latest_value - first_value,
                 self.decimal,
             )
 
+            self._remember_reading_metadata(
+                sensor,
+                readings[-2],
+                readings[-1],
+                last_reset=str(readings[-2].get("timestamp") or "") or None,
+            )
+            self._remember_reading_metadata(
+                monthly_sensor,
+                readings[0],
+                readings[-1],
+                last_reset=str(readings[0].get("timestamp") or "") or None,
+            )
+
         return sensor_output
+
+    def total_registers_output(
+        self,
+        data: list[dict[str, Any]],
+        sensor_map: dict[str, str],
+    ) -> dict[str, float]:
+        """Expose the latest cumulative meter-register values."""
+        output: dict[str, float] = {}
+
+        for block in data or []:
+            reading_type = str(block.get("readingType", ""))
+            tag = self._tag_for_reading_type(reading_type)
+            sensor = sensor_map.get(tag) if tag else None
+            if sensor is None:
+                continue
+
+            readings = self._sorted_readings(block)
+            if not readings:
+                continue
+
+            latest = readings[-1]
+            try:
+                output[sensor] = round(float(latest["value"]), self.decimal)
+            except (KeyError, TypeError, ValueError):
+                continue
+
+            self._remember_reading_metadata(sensor, latest)
+
+        return output
 
     async def get_casovni_blok(self) -> dict[str, float | None]:
         """Get currently valid contracted powers for tariff blocks."""
