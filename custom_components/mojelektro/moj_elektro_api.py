@@ -236,11 +236,9 @@ class MojElektroApi:
         sensor_output = {}
 
         if not data:
-            for item in setup:
-                sensor = item["sensor"]
-                sensor_output[sensor] = 0.0
-                if sensor.startswith("daily_"):
-                    sensor_output[sensor.replace("daily_", "monthly_", 1)] = 0.0
+            # Do not synthesize zeros for an empty successful response.
+            # Missing keys are filled from last_data later in getData(), which
+            # avoids false resets in TOTAL_INCREASING statistics.
             return sensor_output
 
         for block in data:
@@ -441,17 +439,19 @@ class MojElektroApi:
 
     def consumption_by_block(self, data, blocks):
         """Calculate daily input energy grouped by network tariff block."""
+        if not data:
+            return {}
+
         blocks_sums = {1: 0, 2: 0, 3: 0, 4: 0, 5: 0}
         reading_type = self.find_tag(
             "A+", json.loads(READING_TYPE_ARRAY), 2
         )
         if reading_type is None:
-            return {
-                mapping["sensor"]: 0.0
-                for mapping in blocks
-            }
+            return {}
 
-        for block in data or []:
+        valid_reading_found = False
+
+        for block in data:
             if block.get("readingType") != reading_type:
                 continue
 
@@ -465,6 +465,10 @@ class MojElektroApi:
 
                 if block_num in blocks_sums:
                     blocks_sums[block_num] += value
+                    valid_reading_found = True
+
+        if not valid_reading_found:
+            return {}
 
         result = {}
         for mapping in blocks:
