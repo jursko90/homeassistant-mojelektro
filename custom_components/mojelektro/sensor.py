@@ -1,6 +1,6 @@
 """Sensor platform for the Moj Elektro integration."""
 
-from datetime import timedelta
+from datetime import datetime, timedelta
 import logging
 
 from homeassistant.components.sensor import (
@@ -25,6 +25,7 @@ from .const import (
     CONF_ENABLE_15MIN,
     CONF_ENABLE_CONTRACTED_POWER,
     CONF_ENABLE_DAILY,
+    CONF_ENABLE_TOTAL,
     CONF_ENABLE_TARIFF_BLOCKS,
     CONF_LOOKBACK_DAYS,
     CONF_METER_ID,
@@ -34,6 +35,7 @@ from .const import (
     DEFAULT_ENABLE_15MIN,
     DEFAULT_ENABLE_CONTRACTED_POWER,
     DEFAULT_ENABLE_DAILY,
+    DEFAULT_ENABLE_TOTAL,
     DEFAULT_ENABLE_TARIFF_BLOCKS,
     DEFAULT_LOOKBACK_DAYS,
     DEFAULT_UPDATE_INTERVAL,
@@ -84,6 +86,10 @@ async def async_setup_entry(
             CONF_ENABLE_DAILY,
             DEFAULT_ENABLE_DAILY,
         ),
+        enable_total=options.get(
+            CONF_ENABLE_TOTAL,
+            DEFAULT_ENABLE_TOTAL,
+        ),
         enable_tariff_blocks=options.get(
             CONF_ENABLE_TARIFF_BLOCKS,
             DEFAULT_ENABLE_TARIFF_BLOCKS,
@@ -119,8 +125,13 @@ async def async_setup_entry(
 
     await coordinator.async_config_entry_first_refresh()
 
+    hass.data.setdefault(DOMAIN, {})[entry.entry_id] = {
+        "api": api,
+        "coordinator": coordinator,
+    }
+
     sensors = [
-        MojElektroSensor(coordinator, measurement, meter_id)
+        MojElektroSensor(coordinator, measurement, meter_id, api)
         for measurement in coordinator.data
     ]
     async_add_entities(sensors)
@@ -129,12 +140,19 @@ async def async_setup_entry(
 class MojElektroSensor(CoordinatorEntity, SensorEntity):
     """Representation of a Moj Elektro sensor."""
 
-    def __init__(self, coordinator, measurement_name: str, meter_id: str) -> None:
+    def __init__(
+        self,
+        coordinator,
+        measurement_name: str,
+        meter_id: str,
+        api: MojElektroApi,
+    ) -> None:
         """Initialize the sensor."""
         super().__init__(coordinator)
 
         self.meter_id = meter_id
         self.measurement_name = measurement_name
+        self.api = api
         self._last_known_state = None
 
         self._attr_unique_id = (
@@ -145,11 +163,15 @@ class MojElektroSensor(CoordinatorEntity, SensorEntity):
         if measurement_name.startswith("casovni_blok"):
             self._attr_native_unit_of_measurement = UnitOfPower.KILO_WATT
             self._attr_device_class = SensorDeviceClass.POWER
+            self._attr_state_class = SensorStateClass.MEASUREMENT
             self._attr_icon = "mdi:flash"
         else:
             self._attr_native_unit_of_measurement = UnitOfEnergy.KILO_WATT_HOUR
             self._attr_device_class = SensorDeviceClass.ENERGY
-            self._attr_state_class = SensorStateClass.TOTAL_INCREASING
+            if measurement_name.startswith(("total_", "monthly_")):
+                self._attr_state_class = SensorStateClass.TOTAL_INCREASING
+            else:
+                self._attr_state_class = SensorStateClass.TOTAL
             self._attr_icon = "mdi:transmission-tower"
 
     @property
@@ -163,6 +185,27 @@ class MojElektroSensor(CoordinatorEntity, SensorEntity):
             "sw_version": VERSION,
             "entry_type": DeviceEntryType.SERVICE,
         }
+
+    @property
+    def last_reset(self):
+        """Return the reset point for interval/daily total sensors."""
+        if self._attr_state_class != SensorStateClass.TOTAL:
+            return None
+
+        metadata = self.api.last_reading_metadata.get(
+            self.measurement_name,
+            {},
+        )
+        raw_value = metadata.get("last_reset")
+        if not raw_value:
+            return None
+
+        try:
+            return datetime.fromisoformat(
+                str(raw_value).replace("Z", "+00:00")
+            )
+        except ValueError:
+            return None
 
     @property
     def native_value(self):
