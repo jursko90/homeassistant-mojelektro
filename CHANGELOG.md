@@ -22,6 +22,17 @@
 - add Slovenian config/options translations
 - automatically reload the integration after option changes using Home Assistant's current OptionsFlowWithReload pattern
 
+### Data quality, statistics and diagnostics
+
+- load the official `/reading-qualities` catalogue and retain quality flags/descriptions as non-sensitive diagnostics metadata
+- add cumulative import/export meter-register sensors for Home Assistant Energy Dashboard use
+- correct sensor state classes: interval/daily values use reset-aware totals, cumulative/monthly values use increasing totals, and contracted power uses measurement semantics
+- calculate tariff-block totals from the latest complete 15-minute day only (92/96/100 intervals), avoiding partial overnight data and multi-day double counting
+- use the Home Assistant timezone for date boundaries instead of the host/container timezone
+- add privacy-safe diagnostics that redact token and EIMM and never include measurement values
+- add opt-in privacy-safe `souporaba` status-count sensors while keeping EIMM/GSRN/contact details out of entity states
+- add API methods for souporaba detail and network-charge overview without exposing those sensitive payloads by default
+
 ### Tests
 
 - add regression tests for runtime reading-type discovery
