@@ -1,71 +1,200 @@
-[![HACS Custom](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://hacs.xyz)
-[![GitHub issues](https://img.shields.io/github/issues/jursko90/homeassistant-mojelektro)](https://github.com/jursko90/homeassistant-mojelektro/issues) 
-![GitHub User's stars](https://img.shields.io/github/stars/frlequ)
-![GitHub Repo stars](https://img.shields.io/github/stars/jursko90/homeassistant-mojelektro)
+# Moj Elektro for Home Assistant
 
+[![Version](https://img.shields.io/badge/version-0.2.7-blue.svg)](https://github.com/jursko90/homeassistant-mojelektro)
+[![HACS Custom](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://hacs.xyz/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![GitHub stars](https://img.shields.io/github/stars/jursko90/homeassistant-mojelektro)](https://github.com/jursko90/homeassistant-mojelektro/stargazers)
 
-# Home Assistant Integration of Moj Elektro electricity meter\n\n> [!NOTE]\n> This repository is a maintained fork of the original `frlequ/homeassistant-mojelektro` project. The original MIT license and attribution are preserved.\n
-This is an updated version of the custom component for integrating electric utility meter data into Home Assistant. It no longer requires a local certificate to access Moj Elektro but utilizes a **new API** service provided by Informatika.si.
+Home Assistant custom integration for electricity-meter data from the Slovenian **Moj Elektro** service using the official Informatika.si API.
 
-![Screenshot of a Moj Electro in Home Assistant using Apex Chart Card.](/assets/energy.jpg)
-<sub> *Example of Moj Elektro API using Apex Chart Card. You can find yaml in https://github.com/frlequ/mojelektro-apex-chart </sub> 
+> [!IMPORTANT]
+> **This repository is a maintained fork of [frlequ/homeassistant-mojelektro](https://github.com/frlequ/homeassistant-mojelektro).**
+>
+> The original project, authorship and MIT license are preserved. This fork exists to keep the integration compatible with current Home Assistant releases, fix outstanding issues and continue development against the current Moj Elektro API.
 
+## Current status
 
-> [!NOTE]
-> **Note about data:** This integration gathers energy information with a **24-hour delay** because API doesn't provide real-time data. Unfortunately, this delay leads to inaccurate readings, especially between midnight and 6 a.m as data aggregates. The problem lies with Moj Elektro, and there's no way around it.
+**Maintained fork:** `jursko90/homeassistant-mojelektro`  
+**Maintainer:** [`jursko90`](https://github.com/jursko90)  
+**Current version:** `0.2.7`  
+**Home Assistant baseline:** `2025.1+`  
+**API:** `https://api.informatika.si/mojelektro/v1`
 
+Version 0.2.7 is primarily a **compatibility and stability release**. New API functionality is planned for the 0.3.x series.
 
-## Setup API
+## What the integration currently provides
 
-1. Log in to Mojelektro.si using any available login options.
-2. Under `API storitve`, find the option to create a token `Kreiraj žeton`. Use the desired expiration and click `Kreiraj žeton`.
-4. Copy the newly generated token. You'll need it in the configuration step.
-5. Your `meter_id` is `EIMM` number found und `Merilna mesta/merilne točke`
+- 15-minute imported and exported energy readings
+- daily imported/exported energy
+- monthly imported/exported energy
+- peak/off-peak tariff readings where available
+- daily consumption grouped by network tariff block
+- contracted power for blocks 1-5
+- Home Assistant UI config flow
+- configurable decimal precision
+- automatic token reauthentication flow
+- stable entities across temporary partial API responses
 
+Moj Elektro is not a real-time source. Availability and freshness of readings depend on data published by the upstream Moj Elektro / Informatika.si service.
+
+## Why this fork exists
+
+The original integration remained useful, but several Home Assistant compatibility issues accumulated while upstream development slowed down.
+
+The first maintained-fork release addresses, among other things:
+
+- blocking file I/O inside the Home Assistant event loop
+- Home Assistant 2026.12 device-registry compatibility
+- modern `SensorEntity.native_value` usage
+- safer `DataUpdateCoordinator` startup and update handling
+- proper authentication, connection and API-request error handling
+- reauthentication when an API token expires or is revoked
+- duplicate EIMM/config-entry protection
+- deterministic entity unique IDs
+- safer handling of incomplete Moj Elektro API responses
+- contracted-power validity on the final day of a validity period
+- removal of unused runtime dependencies
+- refreshed HACS and CI metadata
+
+See [CHANGELOG.md](CHANGELOG.md) for release details.
+
+## Upstream work reviewed
+
+This fork does not claim the upstream work as new work. Relevant open upstream pull requests and issues were reviewed and either incorporated, adapted or intentionally deferred.
+
+| Upstream item | Contributor | Status in this fork | Notes |
+| --- | --- | --- | --- |
+| [PR #59](https://github.com/frlequ/homeassistant-mojelektro/pull/59) | [`kosl`](https://github.com/kosl) | **Adapted / superseded** | Fix for blocking `manifest.json` reads. The fork removes the runtime file read entirely and uses the integration version directly. |
+| [PR #60](https://github.com/frlequ/homeassistant-mojelektro/pull/60) | [`mikrohard`](https://github.com/mikrohard) | **Included** | Fixes contracted-power sensors on the last day of the validity period by comparing dates instead of full datetimes. |
+| [PR #64](https://github.com/frlequ/homeassistant-mojelektro/pull/64) | [`MaJerle`](https://github.com/MaJerle) | **Included** | Documentation updated to the current Moj Elektro portal wording: `API storitve`. |
+| [PR #57](https://github.com/frlequ/homeassistant-mojelektro/pull/57) | [`kosl`](https://github.com/kosl) | **Reviewed / deferred** | Changes the 15-minute-data window to avoid incomplete overnight data. This needs validation against the current API before inclusion. |
+| [PR #58](https://github.com/frlequ/homeassistant-mojelektro/pull/58) | [`kosl`](https://github.com/kosl) | **Reviewed / planned** | Adds total meter readings. Planned as part of the 0.3.x API refresh rather than mixed into the stability release. |
+
+### Upstream issues addressed in 0.2.7
+
+- [#54 – blocking call](https://github.com/frlequ/homeassistant-mojelektro/issues/54)
+- [#62 – blocking/database executor warnings](https://github.com/frlequ/homeassistant-mojelektro/issues/62)
+- [#63 – integration slowdowns caused by blocking I/O](https://github.com/frlequ/homeassistant-mojelektro/issues/63)
+- [#65 – non-string device model, breaking in HA 2026.12](https://github.com/frlequ/homeassistant-mojelektro/issues/65)
+
+Upstream [issue #66](https://github.com/frlequ/homeassistant-mojelektro/issues/66) requesting **souporaba** data is part of the planned 0.3.x work.
 
 ## Installation
-1. **Either**
-    - Method 1 _(recommended for this fork)_: In HACS, add `https://github.com/jursko90/homeassistant-mojelektro` as a **Custom repository** with category **Integration**, then install `Moj Elektro`.
-    
-    - Method 2: [![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=frlequ&repository=homeassistant-mojelektro&category=integration)
-    
-    - Method 3: Manually copy `mojelektro` folder from [latest release](https://github.com/jursko90/homeassistant-mojelektro/releases/latest) to `custom_components` folder.
-2. _After download restart Home Assistant!_
 
-## Configuration
-In Home Assistant
-1. Go to Settings > Add integration > search > Moj Elektro
-2. Enter credentials:
+### HACS
 
-![Screenshot of a Moj Electro setup in Home Assistant.](/assets/setup.jpg)
+This fork is installed as a **custom HACS repository**.
 
-> [!NOTE]
-> _As for version 0.2.0 there is no need for `configuration.yaml` file edit!_
+1. Open **HACS**.
+2. Open the menu and choose **Custom repositories**.
+3. Add:
 
-## Network Tariff Blocks
-If you are also searching for current tariff blocks (omrežnina), you can find integration here:
+   `https://github.com/jursko90/homeassistant-mojelektro`
 
-https://github.com/frlequ/home-assistant-network-tariff
+4. Select category **Integration**.
+5. Install **Moj Elektro**.
+6. Restart Home Assistant.
 
-and the custom card:
+If the original HACS-default integration is already installed, remove or replace it with this repository before testing the maintained fork.
 
-https://github.com/frlequ/network-tariff-card
+### Manual installation
+
+Copy:
+
+`custom_components/mojelektro`
+
+into your Home Assistant:
+
+`/config/custom_components/mojelektro`
+
+Then restart Home Assistant.
+
+## Moj Elektro API setup
+
+Official API documentation:
+
+https://docs.informatika.si/mojelektro/api/
+
+1. Sign in to **Moj Elektro**.
+2. Open **API storitve**.
+3. Create an API token with the desired expiration.
+4. Copy the generated token.
+5. Find the required **EIMM** identifier under your metering-point information.
+6. In Home Assistant open **Settings → Devices & services → Add integration → Moj Elektro**.
+7. Enter the token and EIMM.
+
+No `configuration.yaml` entry is required.
 
 ## Roadmap
 
-- [X] Add energy output sensors
-- [X] Add config flow (Home Assistant UI setup)
-- [X] Add decimals options for meters
-- [X] Add tariff block power
-- [X] Add energy consumption by blocks
-- [ ] Add option to save to long term statistics
-- [X] Multi-language Support
-    - [X] English
-    - [ ] Slovenian
+### 0.2.x — compatibility and stability
 
+- [x] Home Assistant 2026 compatibility
+- [x] remove event-loop blocking file reads
+- [x] fix device-registry model type
+- [x] modern sensor API
+- [x] robust coordinator/error handling
+- [x] token reauthentication
+- [x] stable config-entry and entity IDs
+- [x] contracted-power validity boundary fix
+- [x] safer partial/malformed API-response handling
+- [ ] add automated unit tests for API parsing and config flow
+- [ ] validate CI/HACS workflows on the fork
 
-## Report any issues
+### 0.3.x — Moj Elektro API refresh
 
-Thanks and consider giving me a 🌟 star
+- [ ] use official `/reading-type` instead of maintaining the full reading-type list manually
+- [ ] use `/reading-qualities` to expose or reject low-quality readings correctly
+- [ ] add `/souporaba` support
+- [ ] add total meter-reading sensors
+- [ ] improve long-term statistics / Energy Dashboard support
+- [ ] expose useful metering-point metadata from `/merilno-mesto/{identifikator}`
+- [ ] improve contracted-power data from `/merilna-tocka/{gsrn}`
+- [ ] review the 15-minute-data window against current API behaviour
+- [ ] add Slovenian translations
 
-<a href="https://www.buymeacoffee.com/frlequ" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" style="height: 60px !important;width: 217px !important;" ></a>
+### Later
+
+- [ ] diagnostics download suitable for bug reports without exposing the API token
+- [ ] broader automated test coverage against recorded/sanitized API payloads
+- [ ] release automation and tagged HACS releases
+- [ ] continue tracking upstream changes where useful
+
+## Relationship to the original project
+
+The original repository is:
+
+**[frlequ/homeassistant-mojelektro](https://github.com/frlequ/homeassistant-mojelektro)**
+
+This maintained fork builds on that work and remains licensed under the same **MIT License**. Original copyright and license notices are retained.
+
+Where upstream pull requests or fixes are incorporated, they are documented above and in the changelog.
+
+## Support the original author
+
+The original integration was created and maintained by **frlequ**. If the original project has been useful to you, you can support its author here:
+
+<a href="https://www.buymeacoffee.com/frlequ"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" height="50"></a>
+
+## Issues and contributions
+
+For problems specific to this maintained fork, use the fork issue tracker once GitHub Issues are enabled for the repository:
+
+https://github.com/jursko90/homeassistant-mojelektro/issues
+
+When reporting a problem, please include:
+
+- Home Assistant version
+- Moj Elektro integration version
+- relevant Home Assistant log messages
+- whether the problem also occurs after restarting Home Assistant
+
+**Never post your Moj Elektro API token in an issue or log excerpt.**
+
+Pull requests are welcome. Changes should remain focused, Home Assistant-compatible and avoid exposing credentials or personal metering data.
+
+## License
+
+MIT License. See [LICENSE](LICENSE).
+
+This fork preserves the license and attribution of the original project.
