@@ -13,6 +13,7 @@ from .const import (
     CONF_ENABLE_15MIN,
     CONF_ENABLE_CONTRACTED_POWER,
     CONF_ENABLE_DAILY,
+    CONF_ENABLE_TOTAL,
     CONF_ENABLE_TARIFF_BLOCKS,
     CONF_LOOKBACK_DAYS,
     CONF_METER_ID,
@@ -22,6 +23,7 @@ from .const import (
     DEFAULT_ENABLE_15MIN,
     DEFAULT_ENABLE_CONTRACTED_POWER,
     DEFAULT_ENABLE_DAILY,
+    DEFAULT_ENABLE_TOTAL,
     DEFAULT_ENABLE_TARIFF_BLOCKS,
     DEFAULT_LOOKBACK_DAYS,
     DEFAULT_UPDATE_INTERVAL,
@@ -200,6 +202,13 @@ class MojeElektroOptionsFlow(config_entries.OptionsFlowWithReload):
                     default=current.get(
                         CONF_ENABLE_DAILY,
                         DEFAULT_ENABLE_DAILY,
+                    ),
+                ): bool,
+                vol.Required(
+                    CONF_ENABLE_TOTAL,
+                    default=current.get(
+                        CONF_ENABLE_TOTAL,
+                        DEFAULT_ENABLE_TOTAL,
                     ),
                 ): bool,
                 vol.Required(
