@@ -7,16 +7,16 @@
         "data": {
           "token": "Token",
           "meter_id": "Meter ID (EIMM)",
-		  "decimal": "Decimal places for sensors."
+          "decimal": "Decimal places for sensors."
         },
-		"data_description": {
+        "data_description": {
           "decimal": "Leave empty for default (4) or enter decimal places for energy sensors (0-10)."
         }
       }
     },
     "error": {
       "cannot_connect": "Failed to connect to the service, please check your credentials.",
-      "invalid_auth": "Invalid authentication, please try again.",
+      "invalid_auth": "Invalid API token or meter ID (EIMM).",
       "unknown": "An unknown error occurred."
     },
     "abort": {
