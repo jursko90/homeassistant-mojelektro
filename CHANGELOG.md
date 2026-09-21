@@ -29,6 +29,7 @@ First maintained-fork release.
 
 ### API and data robustness
 
+- correct Slovenian network tariff-block hour boundaries and work-free-day handling against the current Energy Agency schedule
 - preserve prior sensor values when Moj Elektro temporarily returns an empty successful payload instead of synthesizing zero values
 - preserve `TOTAL_INCREASING` statistics from false zero/reset/rebound sequences
 - fixed crashes caused by missing or unknown reading types
