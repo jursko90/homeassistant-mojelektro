@@ -247,3 +247,24 @@ def test_tariff_blocks_ignore_partial_newer_day():
         for sensor, metadata in api.last_reading_metadata.items()
         if sensor.startswith("daily_input_blok_")
     } == {complete_day.isoformat()}
+
+
+def test_souporaba_summary_exposes_counts_only():
+    """Souporaba entities should expose status counts without identifiers."""
+    result = MojElektroApi.souporaba_summary_output(
+        [
+            {"sifra": 1, "eiMmOddajnika": "secret-a", "statusZahteve": "POTRJENA"},
+            {"sifra": 2, "eiMmPrejemnika": "secret-b", "statusZahteve": "V_IZVAJANJU"},
+            {"sifra": 3, "statusZahteve": "ZAVRNJENA"},
+            {"sifra": 4, "statusZahteve": "POTRJENA"},
+        ]
+    )
+
+    assert result == {
+        "souporaba_total": 4.0,
+        "souporaba_confirmed": 2.0,
+        "souporaba_in_progress": 1.0,
+        "souporaba_rejected": 1.0,
+    }
+    assert "secret-a" not in repr(result)
+    assert "secret-b" not in repr(result)
