@@ -14,6 +14,7 @@ from .const import (
     DOMAIN,
     FIFTEEN_MINUTE_SENSORS,
     TARIFF_BLOCK_SENSORS,
+    TOTAL_REGISTER_SENSORS,
     CONF_METER_ID,
 )
 
@@ -30,6 +31,7 @@ def _expected_sensor_names() -> list[str]:
         names.append(sensor.replace("daily_", "monthly_", 1))
 
     names.extend(TARIFF_BLOCK_SENSORS.values())
+    names.extend(TOTAL_REGISTER_SENSORS.values())
     names.extend(CONTRACTED_POWER_SENSORS)
     return names
 
@@ -103,4 +105,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a Moj Elektro config entry."""
-    return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    unload_ok = await hass.config_entries.async_unload_platforms(
+        entry,
+        PLATFORMS,
+    )
+    if unload_ok:
+        domain_data = hass.data.get(DOMAIN, {})
+        domain_data.pop(entry.entry_id, None)
+        if not domain_data:
+            hass.data.pop(DOMAIN, None)
+    return unload_ok
