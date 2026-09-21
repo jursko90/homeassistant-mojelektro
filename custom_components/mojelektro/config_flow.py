@@ -12,6 +12,7 @@ from .moj_elektro_api import (
     MojElektroApi,
     MojElektroAuthError,
     MojElektroError,
+    MojElektroRequestError,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -36,7 +37,7 @@ class MojeElektroFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
 
             try:
                 valid = await api.validate_token()
-            except MojElektroAuthError:
+            except (MojElektroAuthError, MojElektroRequestError):
                 valid = False
             except MojElektroError as err:
                 _LOGGER.debug("Moj Elektro connection validation failed: %s", err)
