@@ -319,6 +319,17 @@ class MojElektroApi:
                 end_date=today,
             )
 
+        if fifteen_data or daily_data:
+            try:
+                await self.get_reading_qualities()
+            except MojElektroAuthError:
+                raise
+            except MojElektroError as err:
+                _LOGGER.warning(
+                    "Unable to load Moj Elektro reading-quality descriptions: %s",
+                    err,
+                )
+
         if self.enable_15min:
             sensor_return.update(
                 self.sensors_output(
