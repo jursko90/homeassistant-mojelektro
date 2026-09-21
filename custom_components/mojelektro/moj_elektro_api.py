@@ -25,6 +25,7 @@ from .const import (
     TARIFF_BLOCK_SENSORS,
     SOUPORABA_SENSORS,
 )
+from .tariff import network_tariff_block
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -762,7 +763,7 @@ class MojElektroApi:
             try:
                 timestamp = str(reading["timestamp"])
                 value = float(reading["value"])
-                block_num = self.calculate_tariff(timestamp)
+                block_num = network_tariff_block(timestamp)
             except (KeyError, TypeError, ValueError):
                 continue
 
@@ -790,92 +791,3 @@ class MojElektroApi:
             )
 
         return result
-
-    @staticmethod
-    def calculate_easter(year: int) -> date:
-        """Calculate Easter Sunday for a given year."""
-        a = year % 19
-        b = year // 100
-        c = year % 100
-        d = b // 4
-        e = b % 4
-        f = (b + 8) // 25
-        g = (b - f + 1) // 3
-        h = (19 * a + b - d - g + 15) % 30
-        i = c // 4
-        k = c % 4
-        l = (32 + 2 * e + 2 * i - h - k) % 7
-        m = (a + 11 * h + 22 * l) // 451
-        month = (h + l - 7 * m + 114) // 31
-        day = ((h + l - 7 * m + 114) % 31) + 1
-        return date(year, month, day)
-
-    @classmethod
-    def is_weekend_or_holiday(cls, value: datetime) -> bool:
-        """Check whether a timestamp falls on a weekend or Slovenian holiday."""
-        if value.weekday() in (5, 6):
-            return True
-
-        public_holidays = {
-            (1, 1),
-            (1, 2),
-            (2, 8),
-            (4, 27),
-            (5, 1),
-            (5, 2),
-            (6, 25),
-            (8, 15),
-            (10, 31),
-            (11, 1),
-            (12, 25),
-            (12, 26),
-        }
-
-        easter_sunday = cls.calculate_easter(value.year)
-        easter_saturday = easter_sunday - timedelta(days=1)
-        easter_monday = easter_sunday + timedelta(days=1)
-        public_holidays.add(
-            (easter_saturday.month, easter_saturday.day)
-        )
-        public_holidays.add(
-            (easter_monday.month, easter_monday.day)
-        )
-
-        return (value.month, value.day) in public_holidays
-
-    @classmethod
-    def calculate_tariff(cls, timestamp: str) -> int:
-        """Calculate the Slovenian network tariff block for a reading."""
-        reading_time = datetime.fromisoformat(
-            timestamp.replace("Z", "+00:00")
-        ) - timedelta(minutes=15)
-
-        month = reading_time.month
-        hour = reading_time.hour
-        is_high_season = month in (11, 12, 1, 2)
-        weekend_or_holiday = cls.is_weekend_or_holiday(reading_time)
-
-        tariffs = (
-            ((0, 5), (3, 4), (5, 4)),
-            ((6, 6), (2, 3), (4, 3)),
-            ((7, 13), (1, 2), (3, 2)),
-            ((14, 15), (2, 3), (4, 3)),
-            ((16, 19), (1, 2), (3, 2)),
-            ((20, 21), (2, 3), (4, 3)),
-            ((22, 23), (3, 4), (5, 4)),
-        )
-
-        for time_range, high_season_tariff, low_season_tariff in tariffs:
-            start, end = time_range
-            if start <= hour <= end:
-                if is_high_season and not weekend_or_holiday:
-                    return high_season_tariff[0]
-                if not is_high_season and weekend_or_holiday:
-                    return low_season_tariff[0]
-                return (
-                    high_season_tariff[1]
-                    if is_high_season
-                    else low_season_tariff[1]
-                )
-
-        return 0
