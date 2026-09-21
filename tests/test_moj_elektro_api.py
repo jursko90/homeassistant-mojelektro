@@ -156,7 +156,7 @@ def test_reading_quality_catalog_is_attached_to_metadata():
 
     assert result["15min_input"] == 0.13
     metadata = api.last_reading_metadata["15min_input"]
-    assert metadata["reading_valid"] is False
+    assert metadata["quality_flags_present"] is True
     assert metadata["reading_qualities"] == [
         {
             "code": "ESTIMATED",
