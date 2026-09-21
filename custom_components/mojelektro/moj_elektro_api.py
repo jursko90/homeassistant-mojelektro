@@ -507,7 +507,7 @@ class MojElektroApi:
             metadata["last_reset"] = last_reset
 
         quality_details = self._quality_details(*readings)
-        metadata["reading_valid"] = not quality_details
+        metadata["quality_flags_present"] = bool(quality_details)
         metadata["reading_qualities"] = quality_details
         self.last_reading_metadata[sensor] = metadata
 
