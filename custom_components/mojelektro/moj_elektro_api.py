@@ -16,10 +16,12 @@ from .const import (
     DEFAULT_ENABLE_DAILY,
     DEFAULT_ENABLE_TOTAL,
     DEFAULT_ENABLE_TARIFF_BLOCKS,
+    DEFAULT_ENABLE_SOUPORABA,
     DEFAULT_LOOKBACK_DAYS,
     FIFTEEN_MINUTE_SENSORS,
     TOTAL_REGISTER_SENSORS,
     TARIFF_BLOCK_SENSORS,
+    SOUPORABA_SENSORS,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -57,6 +59,7 @@ class MojElektroApi:
         enable_total: bool = DEFAULT_ENABLE_TOTAL,
         enable_tariff_blocks: bool = DEFAULT_ENABLE_TARIFF_BLOCKS,
         enable_contracted_power: bool = DEFAULT_ENABLE_CONTRACTED_POWER,
+        enable_souporaba: bool = DEFAULT_ENABLE_SOUPORABA,
     ) -> None:
         self.token = token
         self.meter_id = meter_id
@@ -68,6 +71,7 @@ class MojElektroApi:
         self.enable_total = bool(enable_total)
         self.enable_tariff_blocks = bool(enable_tariff_blocks)
         self.enable_contracted_power = bool(enable_contracted_power)
+        self.enable_souporaba = bool(enable_souporaba)
 
         self.last_data: dict[str, float | None] | None = None
         self._reading_types_by_tag: dict[str, dict[str, Any]] | None = None
@@ -212,6 +216,35 @@ class MojElektroApi:
         if not isinstance(payload, list):
             raise MojElektroRequestError(
                 "Moj Elektro returned an invalid /souporaba payload"
+            )
+        return [item for item in payload if isinstance(item, dict)]
+
+    async def get_souporaba_detail(self, code: int) -> dict[str, Any]:
+        """Return details for one sharing relationship."""
+        payload = await self._request_json(f"/souporaba/{int(code)}")
+        if not isinstance(payload, dict):
+            raise MojElektroRequestError(
+                "Moj Elektro returned an invalid souporaba detail payload"
+            )
+        return payload
+
+    async def get_souporaba_network_charges(
+        self,
+        *,
+        start_date: date,
+        end_date: date,
+    ) -> list[dict[str, Any]]:
+        """Return network-charge periods for a sharing organizer."""
+        payload = await self._request_json(
+            "/souporaba/pregled-obracunov-omreznine",
+            params={
+                "datumOd": start_date.isoformat(),
+                "datumDo": end_date.isoformat(),
+            },
+        )
+        if not isinstance(payload, list):
+            raise MojElektroRequestError(
+                "Moj Elektro returned an invalid network-charge overview payload"
             )
         return [item for item in payload if isinstance(item, dict)]
 
@@ -362,6 +395,21 @@ class MojElektroApi:
         if self.enable_contracted_power:
             sensor_return.update(await self.get_casovni_blok())
 
+        if self.enable_souporaba:
+            try:
+                sensor_return.update(
+                    self.souporaba_summary_output(
+                        await self.get_souporaba()
+                    )
+                )
+            except MojElektroAuthError:
+                raise
+            except MojElektroError as err:
+                _LOGGER.warning(
+                    "Unable to update Moj Elektro souporaba summary: %s",
+                    err,
+                )
+
         for sensor_name in self.expected_sensor_names():
             previous_value = (
                 self.last_data.get(sensor_name)
@@ -393,6 +441,9 @@ class MojElektroApi:
 
         if self.enable_contracted_power:
             names.extend(CONTRACTED_POWER_SENSORS)
+
+        if self.enable_souporaba:
+            names.extend(SOUPORABA_SENSORS.values())
 
         return names
 
@@ -567,6 +618,28 @@ class MojElektroApi:
             self._remember_reading_metadata(sensor, latest)
 
         return output
+
+    @staticmethod
+    def souporaba_summary_output(
+        items: list[dict[str, Any]],
+    ) -> dict[str, float]:
+        """Return privacy-safe counts by souporaba status."""
+        counts = {
+            "total": len(items),
+            "POTRJENA": 0,
+            "V_IZVAJANJU": 0,
+            "ZAVRNJENA": 0,
+        }
+
+        for item in items:
+            status = item.get("statusZahteve")
+            if status in counts:
+                counts[status] += 1
+
+        return {
+            sensor_name: float(counts[key])
+            for key, sensor_name in SOUPORABA_SENSORS.items()
+        }
 
     async def get_casovni_blok(self) -> dict[str, float | None]:
         """Get currently valid contracted powers for tariff blocks."""
