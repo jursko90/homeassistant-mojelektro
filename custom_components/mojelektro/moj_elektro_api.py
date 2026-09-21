@@ -2,7 +2,6 @@ from datetime import datetime, timedelta, date
 import json
 import aiohttp
 import logging
-from dateutil import parser
 
 from .const import SETUP_TAG_15_ARRAY, SETUP_TAG_ARRAY, READING_TYPE_ARRAY, SETUP_TAG_BLOCKS_ARRAY
 
@@ -437,10 +436,6 @@ class MojElektroApi:
         return {}
 
 
-    # Calculate consumption by block
-        
-        
-    # Calculate consumption by block
     def consumption_by_block(self, data, blocks):
         """Calculate daily input energy grouped by network tariff block."""
         blocks_sums = {1: 0, 2: 0, 3: 0, 4: 0, 5: 0}
@@ -534,7 +529,7 @@ class MojElektroApi:
     def calculate_tariff(self, timestamp):
 
         
-        date = parser.parse(timestamp) - timedelta(minutes=15)
+        date = datetime.fromisoformat(timestamp.replace("Z", "+00:00")) - timedelta(minutes=15)
 
         
         month = date.month
