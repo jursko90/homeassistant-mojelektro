@@ -14,6 +14,7 @@ from .const import (
     DOMAIN,
     FIFTEEN_MINUTE_SENSORS,
     TARIFF_BLOCK_SENSORS,
+    SOUPORABA_SENSORS,
     TOTAL_REGISTER_SENSORS,
     CONF_METER_ID,
 )
@@ -33,6 +34,7 @@ def _expected_sensor_names() -> list[str]:
     names.extend(TARIFF_BLOCK_SENSORS.values())
     names.extend(TOTAL_REGISTER_SENSORS.values())
     names.extend(CONTRACTED_POWER_SENSORS)
+    names.extend(SOUPORABA_SENSORS.values())
     return names
 
 
