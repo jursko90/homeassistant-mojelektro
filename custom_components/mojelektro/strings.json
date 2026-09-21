@@ -1,0 +1,26 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect to Moj Elektro API",
+        "description": "Enter your credentials to connect to Moj Elektro API.",
+        "data": {
+          "token": "Token",
+          "meter_id": "Meter ID (EIMM)",
+          "decimal": "Decimal places for sensors."
+        },
+        "data_description": {
+          "decimal": "Leave empty for default (4) or enter decimal places for energy sensors (0-10)."
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect to the service, please check your credentials.",
+      "invalid_auth": "Invalid API token or meter ID (EIMM).",
+      "unknown": "An unknown error occurred."
+    },
+    "abort": {
+      "already_configured": "This device is already configured."
+    }
+  }
+}
