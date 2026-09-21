@@ -52,7 +52,7 @@ def _migrate_legacy_sensor_unique_ids(
             f"{meter_id}-sensor.{DOMAIN}_{measurement_name.lower()}"
         )
         legacy_pattern = re.compile(
-            rf"^{re.escape(desired_unique_id)}_(?P<suffix>[2-9]\d*)$"
+            rf"^{re.escape(desired_unique_id)}_(?P<suffix>(?:[2-9]|[1-9]\d+))$"
         )
 
         for entity_entry in registry_entries:
