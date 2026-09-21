@@ -10,6 +10,7 @@ First maintained-fork release.
 
 ### Home Assistant compatibility
 
+- migrate legacy suffixed sensor unique IDs (for example `_2`, `_3`) in the entity registry before using deterministic IDs, preserving existing entity IDs, history, dashboards and automations
 - fixed the device-registry `model` value so it is a string and remains compatible with Home Assistant 2026.12+
 - removed synchronous `manifest.json` reads from the Home Assistant event loop
 - migrated sensor state handling to `SensorEntity.native_value`
@@ -28,6 +29,8 @@ First maintained-fork release.
 
 ### API and data robustness
 
+- preserve prior sensor values when Moj Elektro temporarily returns an empty successful payload instead of synthesizing zero values
+- preserve `TOTAL_INCREASING` statistics from false zero/reset/rebound sequences
 - fixed crashes caused by missing or unknown reading types
 - fixed accidental list access using index `-1` when a required reading type is absent
 - preserve the expected entity set when Moj Elektro temporarily returns partial data
