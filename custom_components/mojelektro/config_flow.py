@@ -15,6 +15,7 @@ from .const import (
     CONF_ENABLE_DAILY,
     CONF_ENABLE_TOTAL,
     CONF_ENABLE_TARIFF_BLOCKS,
+    CONF_ENABLE_SOUPORABA,
     CONF_LOOKBACK_DAYS,
     CONF_METER_ID,
     CONF_TOKEN,
@@ -25,6 +26,7 @@ from .const import (
     DEFAULT_ENABLE_DAILY,
     DEFAULT_ENABLE_TOTAL,
     DEFAULT_ENABLE_TARIFF_BLOCKS,
+    DEFAULT_ENABLE_SOUPORABA,
     DEFAULT_LOOKBACK_DAYS,
     DEFAULT_UPDATE_INTERVAL,
     DOMAIN,
@@ -223,6 +225,13 @@ class MojeElektroOptionsFlow(config_entries.OptionsFlowWithReload):
                     default=current.get(
                         CONF_ENABLE_CONTRACTED_POWER,
                         DEFAULT_ENABLE_CONTRACTED_POWER,
+                    ),
+                ): bool,
+                vol.Required(
+                    CONF_ENABLE_SOUPORABA,
+                    default=current.get(
+                        CONF_ENABLE_SOUPORABA,
+                        DEFAULT_ENABLE_SOUPORABA,
                     ),
                 ): bool,
             }
