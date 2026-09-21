@@ -641,12 +641,11 @@ class MojElektroApi:
         self,
         data: list[dict[str, Any]],
     ) -> dict[str, float]:
-        """Calculate daily imported energy grouped by network tariff block."""
+        """Calculate imported energy by tariff block for the latest complete day."""
         if not data:
             return {}
 
-        blocks_sums = {1: 0.0, 2: 0.0, 3: 0.0, 4: 0.0, 5: 0.0}
-        valid_reading_found = False
+        readings_by_date: dict[date, list[tuple[datetime, dict[str, Any]]]] = {}
 
         for block in data:
             reading_type = str(block.get("readingType", ""))
@@ -656,22 +655,66 @@ class MojElektroApi:
             for reading in self._sorted_readings(block):
                 try:
                     timestamp = str(reading["timestamp"])
-                    value = float(reading["value"])
-                    block_num = self.calculate_tariff(timestamp)
+                    interval_end = datetime.fromisoformat(
+                        timestamp.replace("Z", "+00:00")
+                    )
+                    interval_start = interval_end - timedelta(minutes=15)
+                    float(reading["value"])
                 except (KeyError, TypeError, ValueError):
                     continue
 
-                if block_num in blocks_sums:
-                    blocks_sums[block_num] += value
-                    valid_reading_found = True
+                readings_by_date.setdefault(
+                    interval_start.date(),
+                    [],
+                ).append((interval_start, reading))
 
-        if not valid_reading_found:
+        complete_dates = [
+            reading_date
+            for reading_date, readings in readings_by_date.items()
+            if len(readings) in (92, 96, 100)
+        ]
+        if not complete_dates:
+            _LOGGER.debug(
+                "No complete 15-minute day available for tariff-block totals"
+            )
             return {}
 
-        return {
+        selected_date = max(complete_dates)
+        selected_readings = readings_by_date[selected_date]
+        blocks_sums = {1: 0.0, 2: 0.0, 3: 0.0, 4: 0.0, 5: 0.0}
+
+        for _interval_start, reading in selected_readings:
+            try:
+                timestamp = str(reading["timestamp"])
+                value = float(reading["value"])
+                block_num = self.calculate_tariff(timestamp)
+            except (KeyError, TypeError, ValueError):
+                continue
+
+            if block_num in blocks_sums:
+                blocks_sums[block_num] += value
+
+        reset_at = min(
+            interval_start for interval_start, _reading in selected_readings
+        ).isoformat()
+        source_readings = tuple(
+            reading for _interval_start, reading in selected_readings
+        )
+
+        result = {
             sensor_name: round(blocks_sums[block_num], self.decimal)
             for block_num, sensor_name in TARIFF_BLOCK_SENSORS.items()
         }
+
+        for sensor_name in result:
+            self._remember_reading_metadata(
+                sensor_name,
+                *source_readings,
+                last_reset=reset_at,
+                source_date=selected_date.isoformat(),
+            )
+
+        return result
 
     @staticmethod
     def calculate_easter(year: int) -> date:
