@@ -3,7 +3,7 @@
 [![Version](https://img.shields.io/badge/version-0.2.7-blue.svg)](https://github.com/jursko90/homeassistant-mojelektro)
 [![HACS Custom](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://hacs.xyz/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![GitHub issues](https://img.shields.io/github/issues/jursko90/homeassistant-mojelektro)](https://github.com/jursko90/homeassistant-mojelektro/issues)
+[![GitHub stars](https://img.shields.io/github/stars/jursko90/homeassistant-mojelektro)](https://github.com/jursko90/homeassistant-mojelektro/stargazers)
 
 Home Assistant custom integration for electricity-meter data from the Slovenian **Moj Elektro** service using the official Informatika.si API.
 
@@ -15,6 +15,7 @@ Home Assistant custom integration for electricity-meter data from the Slovenian 
 ## Current status
 
 **Maintained fork:** `jursko90/homeassistant-mojelektro`  
+**Maintainer:** [`jursko90`](https://github.com/jursko90)  
 **Current version:** `0.2.7`  
 **Home Assistant baseline:** `2025.1+`  
 **API:** `https://api.informatika.si/mojelektro/v1`
@@ -61,13 +62,13 @@ See [CHANGELOG.md](CHANGELOG.md) for release details.
 
 This fork does not claim the upstream work as new work. Relevant open upstream pull requests and issues were reviewed and either incorporated, adapted or intentionally deferred.
 
-| Upstream item | Status in this fork | Notes |
-| --- | --- | --- |
-| [PR #59](https://github.com/frlequ/homeassistant-mojelektro/pull/59) | **Adapted / superseded** | Fix for blocking `manifest.json` reads. The fork removes the runtime file read entirely and uses the integration version directly. |
-| [PR #60](https://github.com/frlequ/homeassistant-mojelektro/pull/60) | **Included** | Fixes contracted-power sensors on the last day of the validity period by comparing dates instead of full datetimes. |
-| [PR #64](https://github.com/frlequ/homeassistant-mojelektro/pull/64) | **Included** | Documentation updated to the current Moj Elektro portal wording: `API storitve`. |
-| [PR #57](https://github.com/frlequ/homeassistant-mojelektro/pull/57) | **Reviewed / deferred** | Changes the 15-minute-data window to avoid incomplete overnight data. This needs validation against the current API before inclusion. |
-| [PR #58](https://github.com/frlequ/homeassistant-mojelektro/pull/58) | **Reviewed / planned** | Adds total meter readings. Planned as part of the 0.3.x API refresh rather than mixed into the stability release. |
+| Upstream item | Contributor | Status in this fork | Notes |
+| --- | --- | --- | --- |
+| [PR #59](https://github.com/frlequ/homeassistant-mojelektro/pull/59) | [`kosl`](https://github.com/kosl) | **Adapted / superseded** | Fix for blocking `manifest.json` reads. The fork removes the runtime file read entirely and uses the integration version directly. |
+| [PR #60](https://github.com/frlequ/homeassistant-mojelektro/pull/60) | [`mikrohard`](https://github.com/mikrohard) | **Included** | Fixes contracted-power sensors on the last day of the validity period by comparing dates instead of full datetimes. |
+| [PR #64](https://github.com/frlequ/homeassistant-mojelektro/pull/64) | [`MaJerle`](https://github.com/MaJerle) | **Included** | Documentation updated to the current Moj Elektro portal wording: `API storitve`. |
+| [PR #57](https://github.com/frlequ/homeassistant-mojelektro/pull/57) | [`kosl`](https://github.com/kosl) | **Reviewed / deferred** | Changes the 15-minute-data window to avoid incomplete overnight data. This needs validation against the current API before inclusion. |
+| [PR #58](https://github.com/frlequ/homeassistant-mojelektro/pull/58) | [`kosl`](https://github.com/kosl) | **Reviewed / planned** | Adds total meter readings. Planned as part of the 0.3.x API refresh rather than mixed into the stability release. |
 
 ### Upstream issues addressed in 0.2.7
 
@@ -177,7 +178,7 @@ The original integration was created and maintained by **frlequ**. If the origin
 
 ## Issues and contributions
 
-For problems specific to this maintained fork, open an issue here:
+For problems specific to this maintained fork, use the fork issue tracker once GitHub Issues are enabled for the repository:
 
 https://github.com/jursko90/homeassistant-mojelektro/issues
 
