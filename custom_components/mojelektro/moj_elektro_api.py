@@ -302,12 +302,15 @@ class MojElektroApi:
         if not cache_15 or not cache_meter:
             return
 
-        input_15_index = self.find_tag(
-            "32.0.2.4.1.2.12.0.0.0.0.0.0.0.0.0.3.72.0", cache_15, 4
-        )
-        input_daily_index = self.find_tag(
-            "32.0.4.1.1.2.12.0.0.0.0.0.0.0.0.3.72.0", cache_meter, 4
-        )
+        reading_types = json.loads(READING_TYPE_ARRAY)
+        input_15_type = self.find_tag("A+", reading_types, 2)
+        input_daily_type = self.find_tag("A+_T0", reading_types, 2)
+        if input_15_type is None or input_daily_type is None:
+            _LOGGER.debug("Required validation reading types are not configured")
+            return
+
+        input_15_index = self.find_tag(input_15_type, cache_15, 4)
+        input_daily_index = self.find_tag(input_daily_type, cache_meter, 4)
         if input_15_index < 0 or input_daily_index < 0:
             _LOGGER.debug("Required validation reading types are missing")
             return
@@ -439,7 +442,14 @@ class MojElektroApi:
     def consumption_by_block(self, data, blocks):
         """Calculate daily input energy grouped by network tariff block."""
         blocks_sums = {1: 0, 2: 0, 3: 0, 4: 0, 5: 0}
-        reading_type = "32.0.2.4.1.2.12.0.0.0.0.0.0.0.0.3.72.0"
+        reading_type = self.find_tag(
+            "A+", json.loads(READING_TYPE_ARRAY), 2
+        )
+        if reading_type is None:
+            return {
+                mapping["sensor"]: 0.0
+                for mapping in blocks
+            }
 
         for block in data or []:
             if block.get("readingType") != reading_type:
