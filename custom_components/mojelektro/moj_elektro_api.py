@@ -7,6 +7,8 @@ from datetime import date, datetime, timedelta
 import logging
 from typing import Any
 
+from homeassistant.util import dt as dt_util
+
 from .const import (
     API_BASE_URL,
     CONTRACTED_POWER_SENSORS,
@@ -300,7 +302,7 @@ class MojElektroApi:
 
     async def getMeterReadings(self, rType=None):
         """Compatibility wrapper for code using the 0.2.x API method."""
-        today = datetime.now().date()
+        today = dt_util.now().date()
         if rType == "15min":
             return await self.get_meter_readings(
                 list(FIFTEEN_MINUTE_SENSORS),
@@ -321,7 +323,7 @@ class MojElektroApi:
 
     async def getData(self) -> dict[str, float | None]:
         """Fetch the configured sensor groups and preserve prior good values."""
-        today = datetime.now().date()
+        today = dt_util.now().date()
         sensor_return: dict[str, float | None] = {}
 
         fifteen_data: list[dict[str, Any]] = []
@@ -675,7 +677,7 @@ class MojElektroApi:
     @staticmethod
     def _extract_casovni_bloki(dogovorjene_moci) -> dict[str, float | None]:
         """Extract contracted powers valid on the current date."""
-        current_date = datetime.now().date()
+        current_date = dt_util.now().date()
 
         if not isinstance(dogovorjene_moci, list):
             return {}
