@@ -1,9 +1,24 @@
-from datetime import datetime, timedelta, date
-import json
-import aiohttp
-import logging
+"""Async client and data processing for the Moj Elektro API."""
 
-from .const import SETUP_TAG_15_ARRAY, SETUP_TAG_ARRAY, READING_TYPE_ARRAY, SETUP_TAG_BLOCKS_ARRAY
+from __future__ import annotations
+
+import aiohttp
+from datetime import date, datetime, timedelta
+import logging
+from typing import Any
+
+from .const import (
+    API_BASE_URL,
+    CONTRACTED_POWER_SENSORS,
+    DAILY_SENSORS,
+    DEFAULT_ENABLE_15MIN,
+    DEFAULT_ENABLE_CONTRACTED_POWER,
+    DEFAULT_ENABLE_DAILY,
+    DEFAULT_ENABLE_TARIFF_BLOCKS,
+    DEFAULT_LOOKBACK_DAYS,
+    FIFTEEN_MINUTE_SENSORS,
+    TARIFF_BLOCK_SENSORS,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -23,252 +38,382 @@ class MojElektroRequestError(MojElektroError):
 class MojElektroConnectionError(MojElektroError):
     """The API could not be reached or returned a server error."""
 
+
 class MojElektroApi:
-    """Class to interact with the MojElektro API."""
+    """Interact with the official Moj Elektro API."""
 
-
-    def __init__(self, token, meter_id, decimal, session):
+    def __init__(
+        self,
+        token: str,
+        meter_id: str,
+        decimal: int | None,
+        session,
+        *,
+        lookback_days: int = DEFAULT_LOOKBACK_DAYS,
+        enable_15min: bool = DEFAULT_ENABLE_15MIN,
+        enable_daily: bool = DEFAULT_ENABLE_DAILY,
+        enable_tariff_blocks: bool = DEFAULT_ENABLE_TARIFF_BLOCKS,
+        enable_contracted_power: bool = DEFAULT_ENABLE_CONTRACTED_POWER,
+    ) -> None:
         self.token = token
         self.meter_id = meter_id
         self.decimal = int(decimal) if decimal is not None else 4
         self.session = session
-        self.cache = None
-        self.cache_date = None
-        self.cacheOK = False
-        self.last_data = None
-        self.first_load = None
+        self.lookback_days = int(lookback_days)
+        self.enable_15min = bool(enable_15min)
+        self.enable_daily = bool(enable_daily)
+        self.enable_tariff_blocks = bool(enable_tariff_blocks)
+        self.enable_contracted_power = bool(enable_contracted_power)
 
+        self.last_data: dict[str, float | None] | None = None
+        self._reading_types_by_tag: dict[str, dict[str, Any]] | None = None
+        self._tag_by_reading_type: dict[str, str] = {}
+        self._reading_qualities: list[dict[str, Any]] | None = None
 
-    async def validate_token(self):
-        """Validate token and meter access without requiring non-empty readings."""
-        await self.getMeterReadings("15min")
-        return True
+    @property
+    def headers(self) -> dict[str, str]:
+        """Return request headers."""
+        return {
+            "accept": "application/json",
+            "X-API-TOKEN": self.token,
+        }
 
-
-    async def getMeterReadings(self, rType=None):
-        """Fetch meter readings from the Moj Elektro API."""
-        url = self.define_request(rType)
-        headers = {"accept": "application/json", "X-API-TOKEN": self.token}
-
+    async def _request_json(
+        self,
+        path: str,
+        *,
+        params: list[tuple[str, str]] | dict[str, str] | None = None,
+    ) -> Any:
+        """Fetch and validate JSON from the Moj Elektro API."""
+        url = f"{API_BASE_URL}{path}"
         try:
-            async with self.session.get(url, headers=headers) as response:
+            async with self.session.get(
+                url,
+                headers=self.headers,
+                params=params,
+            ) as response:
                 if response.status == 200:
-                    data = await response.json()
-                    _LOGGER.debug("Received meter readings for %s", self.meter_id)
-                    interval_blocks = data.get("intervalBlocks", [])
-                    if not isinstance(interval_blocks, list):
-                        raise MojElektroRequestError(
-                            "Moj Elektro returned an invalid intervalBlocks payload"
-                        )
-                    return interval_blocks
-
+                    return await response.json(content_type=None)
                 if response.status in (401, 403):
                     raise MojElektroAuthError(
                         f"Moj Elektro authentication failed (HTTP {response.status})"
                     )
                 if response.status in (400, 404):
                     raise MojElektroRequestError(
-                        f"Moj Elektro rejected the request (HTTP {response.status})"
+                        f"Moj Elektro rejected {path} (HTTP {response.status})"
                     )
                 raise MojElektroConnectionError(
-                    f"Moj Elektro API returned HTTP {response.status}"
+                    f"Moj Elektro API returned HTTP {response.status} for {path}"
                 )
         except aiohttp.ClientError as err:
             raise MojElektroConnectionError(
                 f"Error connecting to Moj Elektro: {err}"
             ) from err
 
+    async def validate_token(self) -> bool:
+        """Validate the token and access to the configured metering point."""
+        await self.get_meter_site()
+        return True
 
-    async def getData(self):
-        """Get or update cache."""
+    async def get_reading_types(
+        self, *, force_refresh: bool = False
+    ) -> dict[str, dict[str, Any]]:
+        """Return the official reading-type catalogue keyed by semantic label."""
+        if self._reading_types_by_tag is not None and not force_refresh:
+            return self._reading_types_by_tag
 
-        # Update only at quaterly hour or on empty last_data
-        current_minute = datetime.now().minute
-        if self.last_data is None or current_minute in [0, 15, 30, 45]:
+        payload = await self._request_json("/reading-type")
+        if not isinstance(payload, list):
+            raise MojElektroRequestError(
+                "Moj Elektro returned an invalid /reading-type payload"
+            )
 
-            #Update Cache
-            cache = await self.getCache()
+        by_tag: dict[str, dict[str, Any]] = {}
+        by_reading_type: dict[str, str] = {}
 
-            sensor_return = {}
+        for item in payload:
+            if not isinstance(item, dict):
+                continue
 
-            if cache is None:
-                _LOGGER.debug("Data not recieved! Returning empty data.")
+            tag = item.get("oznaka")
+            reading_type = item.get("readingType")
+            if not tag or not reading_type:
+                continue
 
-            else:
-                #validate
-                self.validateData(cache)
+            by_tag[str(tag)] = item
+            for key in (
+                "readingType",
+                "readingTypeBrezObracuna",
+                "readingTypeObracun",
+            ):
+                value = item.get(key)
+                if value:
+                    by_reading_type[str(value)] = str(tag)
 
-                #organize sensors
-                sensor_return.update(self.sensors_output(cache.get('15'), json.loads(SETUP_TAG_15_ARRAY)))
-                sensor_return.update(self.sensors_output(cache.get('meter'), json.loads(SETUP_TAG_ARRAY)))
-                
-                #calc consumption by blocks
-                sensor_return.update(self.consumption_by_block(cache.get('15'), json.loads(SETUP_TAG_BLOCKS_ARRAY)))
-                
-                # Fetch časovni blok values
-                casovni_blok = await self.get_casovni_blok()
-                sensor_return.update(casovni_blok)
+        if not by_tag:
+            raise MojElektroRequestError(
+                "Moj Elektro returned no usable reading types"
+            )
 
-                # Keep the entity set stable even when the API temporarily
-                # omits one reading type. Preserve the previous value when
-                # available; otherwise expose the entity as unavailable.
-                expected_sensors = []
-                for item in json.loads(SETUP_TAG_15_ARRAY):
-                    expected_sensors.append(item["sensor"])
-                for item in json.loads(SETUP_TAG_ARRAY):
-                    expected_sensors.append(item["sensor"])
-                    expected_sensors.append(
-                        item["sensor"].replace("daily_", "monthly_", 1)
-                    )
-                for item in json.loads(SETUP_TAG_BLOCKS_ARRAY):
-                    expected_sensors.append(item["sensor"])
-                expected_sensors.extend(
-                    f"casovni_blok_{block_number}" for block_number in range(1, 6)
+        self._reading_types_by_tag = by_tag
+        self._tag_by_reading_type = by_reading_type
+        return by_tag
+
+    async def get_reading_qualities(
+        self, *, force_refresh: bool = False
+    ) -> list[dict[str, Any]]:
+        """Return the official reading-quality catalogue."""
+        if self._reading_qualities is not None and not force_refresh:
+            return self._reading_qualities
+
+        payload = await self._request_json("/reading-qualities")
+        if not isinstance(payload, list):
+            raise MojElektroRequestError(
+                "Moj Elektro returned an invalid /reading-qualities payload"
+            )
+
+        self._reading_qualities = [
+            item for item in payload if isinstance(item, dict)
+        ]
+        return self._reading_qualities
+
+    async def get_meter_site(self) -> dict[str, Any]:
+        """Return metadata for the configured metering point."""
+        payload = await self._request_json(f"/merilno-mesto/{self.meter_id}")
+        if not isinstance(payload, dict):
+            raise MojElektroRequestError(
+                "Moj Elektro returned invalid metering-point metadata"
+            )
+        return payload
+
+    async def get_meter_point(self, gsrn: str) -> dict[str, Any]:
+        """Return metadata for a GSRN meter point."""
+        payload = await self._request_json(f"/merilna-tocka/{gsrn}")
+        if not isinstance(payload, dict):
+            raise MojElektroRequestError(
+                "Moj Elektro returned invalid meter-point metadata"
+            )
+        return payload
+
+    async def get_souporaba(self) -> list[dict[str, Any]]:
+        """Return sharing relationships available to the authenticated user."""
+        payload = await self._request_json("/souporaba")
+        if not isinstance(payload, list):
+            raise MojElektroRequestError(
+                "Moj Elektro returned an invalid /souporaba payload"
+            )
+        return [item for item in payload if isinstance(item, dict)]
+
+    async def get_meter_readings(
+        self,
+        tags: list[str] | tuple[str, ...] | set[str],
+        *,
+        start_date: date,
+        end_date: date,
+    ) -> list[dict[str, Any]]:
+        """Fetch readings for semantic register labels discovered at runtime."""
+        reading_types = await self.get_reading_types()
+
+        params: list[tuple[str, str]] = [
+            ("usagePoint", self.meter_id),
+            ("startTime", start_date.isoformat()),
+            ("endTime", end_date.isoformat()),
+        ]
+
+        missing_tags: list[str] = []
+        for tag in tags:
+            definition = reading_types.get(tag)
+            reading_type = definition.get("readingType") if definition else None
+            if not reading_type:
+                missing_tags.append(tag)
+                continue
+            params.append(("option", f"ReadingType={reading_type}"))
+
+        if missing_tags:
+            _LOGGER.warning(
+                "Moj Elektro no longer exposes requested reading types: %s",
+                ", ".join(sorted(missing_tags)),
+            )
+
+        if len(params) == 3:
+            return []
+
+        payload = await self._request_json("/meter-readings", params=params)
+        if not isinstance(payload, dict):
+            raise MojElektroRequestError(
+                "Moj Elektro returned an invalid meter-readings payload"
+            )
+
+        interval_blocks = payload.get("intervalBlocks", [])
+        if not isinstance(interval_blocks, list):
+            raise MojElektroRequestError(
+                "Moj Elektro returned an invalid intervalBlocks payload"
+            )
+
+        return [
+            block for block in interval_blocks if isinstance(block, dict)
+        ]
+
+    async def getMeterReadings(self, rType=None):
+        """Compatibility wrapper for code using the 0.2.x API method."""
+        today = datetime.now().date()
+        if rType == "15min":
+            return await self.get_meter_readings(
+                list(FIFTEEN_MINUTE_SENSORS),
+                start_date=today - timedelta(days=self.lookback_days),
+                end_date=today,
+            )
+
+        start_date = (
+            today - timedelta(days=1)
+            if today.day == 1
+            else today.replace(day=1)
+        )
+        return await self.get_meter_readings(
+            list(DAILY_SENSORS),
+            start_date=start_date,
+            end_date=today,
+        )
+
+    async def getData(self) -> dict[str, float | None]:
+        """Fetch the configured sensor groups and preserve prior good values."""
+        today = datetime.now().date()
+        sensor_return: dict[str, float | None] = {}
+
+        fifteen_data: list[dict[str, Any]] = []
+        daily_data: list[dict[str, Any]] = []
+
+        requested_15_tags: set[str] = set()
+        if self.enable_15min:
+            requested_15_tags.update(FIFTEEN_MINUTE_SENSORS)
+        if self.enable_tariff_blocks:
+            requested_15_tags.add("A+")
+
+        if requested_15_tags:
+            fifteen_data = await self.get_meter_readings(
+                requested_15_tags,
+                start_date=today - timedelta(days=self.lookback_days),
+                end_date=today,
+            )
+
+        if self.enable_daily:
+            daily_start = (
+                today - timedelta(days=1)
+                if today.day == 1
+                else today.replace(day=1)
+            )
+            daily_data = await self.get_meter_readings(
+                list(DAILY_SENSORS),
+                start_date=daily_start,
+                end_date=today,
+            )
+
+        if self.enable_15min:
+            sensor_return.update(
+                self.sensors_output(
+                    fifteen_data,
+                    FIFTEEN_MINUTE_SENSORS,
+                    interval=True,
                 )
+            )
 
-                for sensor_name in expected_sensors:
-                    previous_value = (
-                        self.last_data.get(sensor_name)
-                        if self.last_data is not None
-                        else None
-                    )
-                    sensor_return.setdefault(sensor_name, previous_value)
+        if self.enable_daily:
+            sensor_return.update(
+                self.sensors_output(
+                    daily_data,
+                    DAILY_SENSORS,
+                    interval=False,
+                )
+            )
 
-            self.last_data = sensor_return
-            return sensor_return
-        else:
-            _LOGGER.debug("Not time to update, returning last good data.")
-            return self.last_data
+        if self.enable_tariff_blocks:
+            sensor_return.update(self.consumption_by_block(fifteen_data))
 
+        if self.enable_contracted_power:
+            sensor_return.update(await self.get_casovni_blok())
 
-    async def getCache(self):
-        """Update the API cache when necessary."""
-        if self.cache is None or self.cache_date != datetime.today().date():
-            _LOGGER.debug("Refreshing Moj Elektro API cache")
+        for sensor_name in self.expected_sensor_names():
+            previous_value = (
+                self.last_data.get(sensor_name)
+                if self.last_data is not None
+                else None
+            )
+            sensor_return.setdefault(sensor_name, previous_value)
 
-            meter_readings_15min = await self.getMeterReadings("15min")
-            meter_readings_daily = await self.getMeterReadings()
+        self.last_data = sensor_return
+        return sensor_return
 
-            self.cache = {
-                "15": meter_readings_15min
-                if isinstance(meter_readings_15min, list)
-                else [],
-                "meter": meter_readings_daily
-                if isinstance(meter_readings_daily, list)
-                else [],
-            }
+    def expected_sensor_names(self) -> list[str]:
+        """Return sensor keys enabled by the current options."""
+        names: list[str] = []
 
-            if not self.cache["15"]:
-                _LOGGER.debug("No 15-minute readings returned by Moj Elektro")
-            if not self.cache["meter"]:
-                _LOGGER.debug("No daily meter readings returned by Moj Elektro")
-        else:
-            _LOGGER.debug("Using cached Moj Elektro data")
+        if self.enable_15min:
+            names.extend(FIFTEEN_MINUTE_SENSORS.values())
 
-        return self.cache
+        if self.enable_daily:
+            for sensor in DAILY_SENSORS.values():
+                names.append(sensor)
+                names.append(sensor.replace("daily_", "monthly_", 1))
 
+        if self.enable_tariff_blocks:
+            names.extend(TARIFF_BLOCK_SENSORS.values())
 
-    def get15MinOffset(self):
-        """Get 15min index."""
-        now = datetime.now()
-        return int((now.hour * 60 + now.minute)/15)
+        if self.enable_contracted_power:
+            names.extend(CONTRACTED_POWER_SENSORS)
 
+        return names
 
-    def find_tag(self, tag_to_find, data_list, search):
-        """Hulahop."""
-        if search == 4:
-            return self._find_by_reading_type(tag_to_find, data_list)
-        elif search == 1:
-            return self._find_by_key(data_list, "readingType", tag_to_find, "oznaka")
-        elif search == 2:
-            return self._find_by_key(data_list, "oznaka", tag_to_find, "readingType")
-        elif search == 3:
-            return self._find_by_key(data_list, "oznaka", tag_to_find, "sensor")
-        return None
+    def _tag_for_reading_type(self, reading_type: str) -> str | None:
+        """Resolve an opaque API readingType ID back to its semantic label."""
+        return self._tag_by_reading_type.get(reading_type)
 
-    def _find_by_reading_type(self, tag_to_find, data_list):
-        for index, interval_block in enumerate(data_list):
-            if interval_block.get("readingType") == tag_to_find:
-                return index
-        return -1
+    @staticmethod
+    def _sorted_readings(block: dict[str, Any]) -> list[dict[str, Any]]:
+        """Return timestamped readings in chronological order."""
+        readings = block.get("intervalReadings") or []
+        if not isinstance(readings, list):
+            return []
+        return sorted(
+            (item for item in readings if isinstance(item, dict)),
+            key=lambda item: str(item.get("timestamp", "")),
+        )
 
-    def _find_by_key(self, data_list, search_key, tag_to_find, return_key):
-        for item in data_list:
-            if item.get(search_key) == tag_to_find:
-                return item.get(return_key)
-        return None
-
-
-
-    def define_request(self, rType = None):
-        """Define url and request parameters."""
-        params = ''
-        if rType == '15min':
-            data = json.loads(SETUP_TAG_15_ARRAY)
-        else:
-            data = json.loads(SETUP_TAG_ARRAY)
-        for block in data:
-            #construct setup
-            tag = block.get("oznaka")
-
-            #get readingTypes
-            readingType = self.find_tag(tag, json.loads(READING_TYPE_ARRAY), 2)
-            if readingType != None:
-                #construct Url params:
-                params = params + "&option=ReadingType%3D" + readingType
-
-        current_date = datetime.now()
-        self.date_to = current_date.strftime("%Y-%m-%d")
-        if rType == '15min':
-            self.date_from = (current_date - timedelta(days=1)).strftime("%Y-%m-%d")
-            url = f'https://api.informatika.si/mojelektro/v1/meter-readings?usagePoint={self.meter_id}&startTime={self.date_from}&endTime={self.date_to}{params}'
-        else:
-            if current_date.day == 1:
-                self.date_from = (current_date.replace(day=1) - timedelta(days=1)).replace(day=1).strftime("%Y-%m-%d")
-            else:
-                self.date_from = current_date.replace(day=1).strftime("%Y-%m-%d")
-            url = f'https://api.informatika.si/mojelektro/v1/meter-readings?usagePoint={self.meter_id}&startTime={self.date_from}&endTime={self.date_to}{params}'
-        return url
-
-
-    def sensors_output(self, data, setup):
-        """Organize API readings and calculate sensor values safely."""
-        sensor_output = {}
+    def sensors_output(
+        self,
+        data: list[dict[str, Any]],
+        sensor_map: dict[str, str],
+        *,
+        interval: bool,
+    ) -> dict[str, float]:
+        """Convert API interval blocks to stable Home Assistant sensor values."""
+        sensor_output: dict[str, float] = {}
 
         if not data:
-            # Do not synthesize zeros for an empty successful response.
-            # Missing keys are filled from last_data later in getData(), which
-            # avoids false resets in TOTAL_INCREASING statistics.
             return sensor_output
 
         for block in data:
-            reading_type = block.get("readingType", "")
-            tag = self.find_tag(reading_type, json.loads(READING_TYPE_ARRAY), 1)
+            reading_type = str(block.get("readingType", ""))
+            tag = self._tag_for_reading_type(reading_type)
             if tag is None:
-                _LOGGER.debug("Unknown reading type: %s", reading_type)
+                _LOGGER.debug("Unknown reading type returned by API: %s", reading_type)
                 continue
 
-            sensor = self.find_tag(tag, setup, 3)
+            sensor = sensor_map.get(tag)
             if sensor is None:
                 continue
 
-            readings = block.get("intervalReadings") or []
+            readings = self._sorted_readings(block)
             if not readings:
                 continue
 
-            if sensor.startswith("15min_"):
-                index = self.get15MinOffset()
-                if index >= len(readings):
-                    _LOGGER.debug(
-                        "15-minute reading index %s unavailable for %s", index, sensor
-                    )
-                    continue
+            if interval:
                 try:
                     sensor_output[sensor] = round(
-                        float(readings[index]["value"]), self.decimal
+                        float(readings[-1]["value"]),
+                        self.decimal,
                     )
                 except (KeyError, TypeError, ValueError):
-                    _LOGGER.debug("Invalid 15-minute reading for %s", sensor)
+                    _LOGGER.debug("Invalid latest interval reading for %s", sensor)
                 continue
 
             if len(readings) < 2:
@@ -283,181 +428,105 @@ class MojElektroApi:
                 _LOGGER.debug("Invalid daily readings for %s", sensor)
                 continue
 
-            sensor_output[sensor] = round(latest_value - previous_value, self.decimal)
+            sensor_output[sensor] = round(
+                latest_value - previous_value,
+                self.decimal,
+            )
             sensor_output[sensor.replace("daily_", "monthly_", 1)] = round(
-                latest_value - first_value, self.decimal
+                latest_value - first_value,
+                self.decimal,
             )
 
         return sensor_output
 
-
-    def validateData(self, data):
-        """Validate cached readings defensively before marking them current."""
-        cache_15 = data.get("15") or []
-        cache_meter = data.get("meter") or []
-        self.cacheOK = False
-
-        if not cache_15 or not cache_meter:
-            return
-
-        reading_types = json.loads(READING_TYPE_ARRAY)
-        input_15_type = self.find_tag("A+", reading_types, 2)
-        input_daily_type = self.find_tag("A+_T0", reading_types, 2)
-        if input_15_type is None or input_daily_type is None:
-            _LOGGER.debug("Required validation reading types are not configured")
-            return
-
-        input_15_index = self.find_tag(input_15_type, cache_15, 4)
-        input_daily_index = self.find_tag(input_daily_type, cache_meter, 4)
-        if input_15_index < 0 or input_daily_index < 0:
-            _LOGGER.debug("Required validation reading types are missing")
-            return
-
-        readings_15 = cache_15[input_15_index].get("intervalReadings") or []
-        readings_daily = cache_meter[input_daily_index].get("intervalReadings") or []
-        if not readings_15 or len(readings_daily) < 2:
-            return
-
-        try:
-            match_date = datetime.strptime(
-                readings_15[0]["timestamp"], "%Y-%m-%dT%H:%M:%S%z"
-            ).strftime("%Y-%m-%d")
-            cur_date = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
-            sum_15min_part = sum(
-                float(item["value"]) for item in readings_15[10:96]
-            )
-            sum_15min = round(
-                sum(float(item["value"]) for item in readings_15[0:96]),
-                self.decimal,
-            )
-            sum_et = round(
-                float(readings_daily[-1]["value"])
-                - float(readings_daily[-2]["value"]),
-                self.decimal,
-            )
-        except (KeyError, TypeError, ValueError):
-            _LOGGER.debug("Unable to validate malformed Moj Elektro readings")
-            return
-
-        if sum_15min == sum_et and sum_15min_part > 0 and cur_date == match_date:
-            self.cacheOK = True
-            self.cache_date = datetime.today().date()
-            _LOGGER.debug("Moj Elektro cache validated successfully")
-        elif cur_date != match_date:
-            _LOGGER.debug(
-                "Moj Elektro reading dates do not match: %s vs %s",
-                cur_date,
-                match_date,
-            )
-        else:
-            _LOGGER.debug(
-                "15-minute and daily data differ: %s vs %s", sum_15min, sum_et
-            )
-
-
-    async def get_casovni_blok(self):
+    async def get_casovni_blok(self) -> dict[str, float | None]:
         """Get currently valid contracted powers for tariff blocks."""
-        url = f"https://api.informatika.si/mojelektro/v1/merilno-mesto/{self.meter_id}"
-        headers = {"accept": "application/json", "X-API-TOKEN": self.token}
-
         try:
-            response = await self._fetch_data(url, headers)
-            if response:
-                gsrn_omto = self._extract_gsrn_omto(response.get("merilneTocke", []))
-                if gsrn_omto:
-                    gsrn_data = await self._fetch_gsrn_data(gsrn_omto, headers)
-                    if gsrn_data:
-                        return self._extract_casovni_bloki(
-                            gsrn_data.get("dogovorjeneMoci", [])
-                        )
+            meter_site = await self.get_meter_site()
+            gsrn_omto = self._extract_gsrn_omto(
+                meter_site.get("merilneTocke", [])
+            )
+            if not gsrn_omto:
+                return {}
+
+            meter_point = await self.get_meter_point(gsrn_omto)
+            return self._extract_casovni_bloki(
+                meter_point.get("dogovorjeneMoci", [])
+            )
         except MojElektroAuthError:
             raise
         except MojElektroError as err:
             _LOGGER.warning("Unable to update contracted powers: %s", err)
+            return {}
 
-        return {}
-
-
-    async def _fetch_data(self, url, headers):
-        """Fetch JSON from an auxiliary Moj Elektro endpoint."""
-        try:
-            async with self.session.get(url, headers=headers) as response:
-                if response.status == 200:
-                    return await response.json()
-                if response.status in (401, 403):
-                    raise MojElektroAuthError(
-                        f"Moj Elektro authentication failed (HTTP {response.status})"
-                    )
-                if response.status in (400, 404):
-                    raise MojElektroRequestError(
-                        f"Moj Elektro rejected {url} (HTTP {response.status})"
-                    )
-                raise MojElektroConnectionError(
-                    f"Moj Elektro API returned HTTP {response.status} for {url}"
-                )
-        except aiohttp.ClientError as err:
-            raise MojElektroConnectionError(
-                f"Error connecting to Moj Elektro: {err}"
-            ) from err
-
-
-    def _extract_gsrn_omto(self, merilna_mesta):
-        """Extract GSRN value where 'vrsta' is 'OMTO'."""
-        for mesto in merilna_mesta:
-            if mesto.get('vrsta') == 'OMTO':
-                return mesto.get('gsrn')
+    @staticmethod
+    def _extract_gsrn_omto(merilne_tocke) -> str | None:
+        """Extract the GSRN value whose type is OMTO."""
+        if not isinstance(merilne_tocke, list):
+            return None
+        for point in merilne_tocke:
+            if isinstance(point, dict) and point.get("vrsta") == "OMTO":
+                gsrn = point.get("gsrn")
+                return str(gsrn) if gsrn else None
         return None
 
-    async def _fetch_gsrn_data(self, gsrn_omto, headers):
-        """Fetch GSRN data."""
-        url_gsrn = f'https://api.informatika.si/mojelektro/v1/merilna-tocka/{gsrn_omto}'
-        return await self._fetch_data(url_gsrn, headers)
-
-    def _extract_casovni_bloki(self, dogovorjene_moci):
+    @staticmethod
+    def _extract_casovni_bloki(dogovorjene_moci) -> dict[str, float | None]:
         """Extract contracted powers valid on the current date."""
         current_date = datetime.now().date()
 
-        for moca in dogovorjene_moci:
+        if not isinstance(dogovorjene_moci, list):
+            return {}
+
+        for power in dogovorjene_moci:
+            if not isinstance(power, dict):
+                continue
             try:
-                datum_od = datetime.strptime(
-                    moca.get("datumOd"), "%Y-%m-%dT%H:%M:%S%z"
+                datum_od = datetime.fromisoformat(
+                    str(power.get("datumOd")).replace("Z", "+00:00")
                 ).date()
-                datum_do = datetime.strptime(
-                    moca.get("datumDo"), "%Y-%m-%dT%H:%M:%S%z"
+                datum_do = datetime.fromisoformat(
+                    str(power.get("datumDo")).replace("Z", "+00:00")
                 ).date()
             except (TypeError, ValueError):
                 continue
 
-            if moca.get("veljavnost") and datum_od <= current_date <= datum_do:
-                return {
-                    f"casovni_blok_{i}": moca.get(f"casovniBlok{i}")
-                    for i in range(1, 6)
-                }
+            if power.get("veljavnost") and datum_od <= current_date <= datum_do:
+                result: dict[str, float | None] = {}
+                for index in range(1, 6):
+                    raw_value = power.get(f"casovniBlok{index}")
+                    try:
+                        value = (
+                            float(raw_value)
+                            if raw_value is not None
+                            else None
+                        )
+                    except (TypeError, ValueError):
+                        value = None
+                    result[f"casovni_blok_{index}"] = value
+                return result
 
         return {}
 
-
-    def consumption_by_block(self, data, blocks):
-        """Calculate daily input energy grouped by network tariff block."""
+    def consumption_by_block(
+        self,
+        data: list[dict[str, Any]],
+    ) -> dict[str, float]:
+        """Calculate daily imported energy grouped by network tariff block."""
         if not data:
             return {}
 
-        blocks_sums = {1: 0, 2: 0, 3: 0, 4: 0, 5: 0}
-        reading_type = self.find_tag(
-            "A+", json.loads(READING_TYPE_ARRAY), 2
-        )
-        if reading_type is None:
-            return {}
-
+        blocks_sums = {1: 0.0, 2: 0.0, 3: 0.0, 4: 0.0, 5: 0.0}
         valid_reading_found = False
 
         for block in data:
-            if block.get("readingType") != reading_type:
+            reading_type = str(block.get("readingType", ""))
+            if self._tag_for_reading_type(reading_type) != "A+":
                 continue
 
-            for reading in block.get("intervalReadings") or []:
+            for reading in self._sorted_readings(block):
                 try:
-                    timestamp = reading["timestamp"]
+                    timestamp = str(reading["timestamp"])
                     value = float(reading["value"])
                     block_num = self.calculate_tariff(timestamp)
                 except (KeyError, TypeError, ValueError):
@@ -470,16 +539,13 @@ class MojElektroApi:
         if not valid_reading_found:
             return {}
 
-        result = {}
-        for mapping in blocks:
-            block_num = int(mapping["oznaka"].split("_")[1])
-            result[mapping["sensor"]] = round(
-                blocks_sums[block_num], self.decimal
-            )
+        return {
+            sensor_name: round(blocks_sums[block_num], self.decimal)
+            for block_num, sensor_name in TARIFF_BLOCK_SENSORS.items()
+        }
 
-        return result
-
-    def calculate_easter(self, year):
+    @staticmethod
+    def calculate_easter(year: int) -> date:
         """Calculate Easter Sunday for a given year."""
         a = year % 19
         b = year // 100
@@ -497,81 +563,72 @@ class MojElektroApi:
         day = ((h + l - 7 * m + 114) % 31) + 1
         return date(year, month, day)
 
-    def get_easter_saturday_monday(self, year):
-        """Calculate Easter Saturday and Easter Monday for a given year."""
-        easter_sunday = self.calculate_easter(year)
+    @classmethod
+    def is_weekend_or_holiday(cls, value: datetime) -> bool:
+        """Check whether a timestamp falls on a weekend or Slovenian holiday."""
+        if value.weekday() in (5, 6):
+            return True
+
+        public_holidays = {
+            (1, 1),
+            (1, 2),
+            (2, 8),
+            (4, 27),
+            (5, 1),
+            (5, 2),
+            (6, 25),
+            (8, 15),
+            (10, 31),
+            (11, 1),
+            (12, 25),
+            (12, 26),
+        }
+
+        easter_sunday = cls.calculate_easter(value.year)
         easter_saturday = easter_sunday - timedelta(days=1)
         easter_monday = easter_sunday + timedelta(days=1)
-        return easter_saturday, easter_monday
+        public_holidays.add(
+            (easter_saturday.month, easter_saturday.day)
+        )
+        public_holidays.add(
+            (easter_monday.month, easter_monday.day)
+        )
 
-    def is_weekend_or_holiday(self, date):
-        """Check if the date is a weekend or a public holiday in Slovenia."""
-        # Check if it's Saturday or Sunday (weekend)
-        if date.weekday() in [5, 6]:
-            return True
-        
-        # List of fixed public holidays in Slovenia
-        public_holidays = [
-            (1, 1),    # New Year's Day
-            (1, 2),    # New Year's Day
-            (2, 8),    # Preseren Day
-            (4, 27),   # Resistance Day
-            (5, 1),    # Labour Day
-            (5, 2),    # Labour Day
-            (6, 25),   # Statehood Day
-            (8, 15),   # Assumption Day
-            (10, 31),  # National Reformation Day
-            (11, 1),   # All Saints' Day
-            (12, 25),  # Christmas
-            (12, 26),  # Independence and Unity Day
-        ]
-        
-        # Calculate Easter Saturday and Easter Monday for the year of the given date
-        easter_saturday, easter_monday = self.get_easter_saturday_monday(date.year)
-        
-        # Add Easter Saturday and Easter Monday to the list of public holidays
-        public_holidays.append((easter_saturday.month, easter_saturday.day))
-        public_holidays.append((easter_monday.month, easter_monday.day))
-        
-        # Check if the date matches any public holiday
-        if (date.month, date.day) in public_holidays:
-            return True
+        return (value.month, value.day) in public_holidays
 
-        return False
+    @classmethod
+    def calculate_tariff(cls, timestamp: str) -> int:
+        """Calculate the Slovenian network tariff block for a reading."""
+        reading_time = datetime.fromisoformat(
+            timestamp.replace("Z", "+00:00")
+        ) - timedelta(minutes=15)
 
+        month = reading_time.month
+        hour = reading_time.hour
+        is_high_season = month in (11, 12, 1, 2)
+        weekend_or_holiday = cls.is_weekend_or_holiday(reading_time)
 
-    def calculate_tariff(self, timestamp):
-
-        
-        date = datetime.fromisoformat(timestamp.replace("Z", "+00:00")) - timedelta(minutes=15)
-
-        
-        month = date.month
-        hour = date.hour
-        is_high_season = month in [11, 12, 1, 2]
-        weekend_or_holiday = self.is_weekend_or_holiday(date)
-
-        # Define tariff rates in a more structured form
-        # (hour_range, high_season_rate, low_season_rate)
-        tariffs = [
-            ((0, 5), (3, 4), (5, 4)),  # Early morning
-            ((6, 6), (2, 3), (4, 3)),  # 6 AM
-            ((7, 13), (1, 2), (3, 2)),  # Morning to early afternoon
-            ((14, 15), (2, 3), (4, 3)),  # Early afternoon
-            ((16, 19), (1, 2), (3, 2)),  # Late afternoon to early evening
-            ((20, 21), (2, 3), (4, 3)),  # Evening
-            ((22, 23), (3, 4), (5, 4)),  # Late evening
-        ]
+        tariffs = (
+            ((0, 5), (3, 4), (5, 4)),
+            ((6, 6), (2, 3), (4, 3)),
+            ((7, 13), (1, 2), (3, 2)),
+            ((14, 15), (2, 3), (4, 3)),
+            ((16, 19), (1, 2), (3, 2)),
+            ((20, 21), (2, 3), (4, 3)),
+            ((22, 23), (3, 4), (5, 4)),
+        )
 
         for time_range, high_season_tariff, low_season_tariff in tariffs:
             start, end = time_range
             if start <= hour <= end:
                 if is_high_season and not weekend_or_holiday:
                     return high_season_tariff[0]
-                elif not is_high_season and weekend_or_holiday:
+                if not is_high_season and weekend_or_holiday:
                     return low_season_tariff[0]
-                else:
-                    return high_season_tariff[1] if is_high_season else low_season_tariff[1]
-        
-        # Default tariff if none of the conditions above are met
+                return (
+                    high_season_tariff[1]
+                    if is_high_season
+                    else low_season_tariff[1]
+                )
+
         return 0
