@@ -56,7 +56,6 @@ async def async_setup_entry(
         hass,
         _LOGGER,
         name="mojelektro_sensor",
-        config_entry=entry,
         update_method=async_update_data,
         update_interval=timedelta(seconds=30),
     )
