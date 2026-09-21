@@ -39,14 +39,16 @@
           "enable_15min": "Enable latest 15-minute readings",
           "enable_daily": "Enable daily and monthly readings",
           "enable_tariff_blocks": "Enable calculated network tariff-block consumption",
-          "enable_contracted_power": "Enable contracted power sensors"
+          "enable_contracted_power": "Enable contracted power sensors",
+          "enable_total": "Enable cumulative meter registers"
         },
         "data_description": {
           "decimal": "Number of decimal places used for numeric sensor values.",
           "update_interval_minutes": "How often Home Assistant queries Moj Elektro. The upstream data is delayed, so very short intervals are usually unnecessary.",
           "lookback_days": "How many days are queried when looking for the newest published 15-minute reading.",
           "enable_tariff_blocks": "These sensors are calculated locally from the Slovenian network tariff schedule.",
-          "enable_contracted_power": "Reads blocks 1-5 from the official metering-point metadata."
+          "enable_contracted_power": "Reads blocks 1-5 from the official metering-point metadata.",
+          "enable_total": "Adds cumulative import/export meter registers suitable for the Home Assistant Energy Dashboard."
         }
       }
     }
