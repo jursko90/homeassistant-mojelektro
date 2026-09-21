@@ -12,6 +12,7 @@ CONF_UPDATE_INTERVAL = "update_interval_minutes"
 CONF_LOOKBACK_DAYS = "lookback_days"
 CONF_ENABLE_15MIN = "enable_15min"
 CONF_ENABLE_DAILY = "enable_daily"
+CONF_ENABLE_TOTAL = "enable_total"
 CONF_ENABLE_TARIFF_BLOCKS = "enable_tariff_blocks"
 CONF_ENABLE_CONTRACTED_POWER = "enable_contracted_power"
 
@@ -20,6 +21,7 @@ DEFAULT_UPDATE_INTERVAL = 15
 DEFAULT_LOOKBACK_DAYS = 2
 DEFAULT_ENABLE_15MIN = True
 DEFAULT_ENABLE_DAILY = True
+DEFAULT_ENABLE_TOTAL = True
 DEFAULT_ENABLE_TARIFF_BLOCKS = True
 DEFAULT_ENABLE_CONTRACTED_POWER = True
 
@@ -43,6 +45,15 @@ DAILY_SENSORS = {
     "A-_T0": "daily_output",
     "A-_T1": "daily_output_peak",
     "A-_T2": "daily_output_offpeak",
+}
+
+TOTAL_REGISTER_SENSORS = {
+    "A+_T0": "total_input",
+    "A+_T1": "total_input_peak",
+    "A+_T2": "total_input_offpeak",
+    "A-_T0": "total_output",
+    "A-_T1": "total_output_peak",
+    "A-_T2": "total_output_offpeak",
 }
 
 TARIFF_BLOCK_SENSORS = {
