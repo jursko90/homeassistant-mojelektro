@@ -19,9 +19,15 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Moj Elektro from a config entry."""
     if entry.unique_id is None:
-        hass.config_entries.async_update_entry(
-            entry, unique_id=entry.data[CONF_METER_ID]
-        )
+        meter_id = entry.data[CONF_METER_ID]
+        duplicate_entries = [
+            existing_entry
+            for existing_entry in hass.config_entries.async_entries(DOMAIN)
+            if existing_entry.entry_id != entry.entry_id
+            and existing_entry.data.get(CONF_METER_ID) == meter_id
+        ]
+        if not duplicate_entries:
+            hass.config_entries.async_update_entry(entry, unique_id=meter_id)
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True
