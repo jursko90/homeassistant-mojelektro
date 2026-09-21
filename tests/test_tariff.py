@@ -48,5 +48,5 @@ def test_easter_monday_is_day_off():
 
 def test_non_work_free_state_holiday_is_not_forced_day_off():
     """A state holiday which is not work-free should keep weekday rules."""
-    # Sovereignty Day is a state holiday but is explicitly not a work-free day.
-    assert not is_slovenian_day_off(date(2026, 10, 26))
+    # Primož Trubar Day is a state holiday but explicitly not work-free.
+    assert not is_slovenian_day_off(date(2026, 6, 8))
