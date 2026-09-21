@@ -448,8 +448,6 @@ class MojElektroApi:
 
         return result
 
-    def calculate_easter
-        
     def calculate_easter(self, year):
         """Calculate Easter Sunday for a given year."""
         a = year % 19
