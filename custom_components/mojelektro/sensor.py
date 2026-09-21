@@ -27,6 +27,7 @@ from .const import (
     CONF_ENABLE_DAILY,
     CONF_ENABLE_TOTAL,
     CONF_ENABLE_TARIFF_BLOCKS,
+    CONF_ENABLE_SOUPORABA,
     CONF_LOOKBACK_DAYS,
     CONF_METER_ID,
     CONF_TOKEN,
@@ -37,6 +38,7 @@ from .const import (
     DEFAULT_ENABLE_DAILY,
     DEFAULT_ENABLE_TOTAL,
     DEFAULT_ENABLE_TARIFF_BLOCKS,
+    DEFAULT_ENABLE_SOUPORABA,
     DEFAULT_LOOKBACK_DAYS,
     DEFAULT_UPDATE_INTERVAL,
     DOMAIN,
@@ -97,6 +99,10 @@ async def async_setup_entry(
         enable_contracted_power=options.get(
             CONF_ENABLE_CONTRACTED_POWER,
             DEFAULT_ENABLE_CONTRACTED_POWER,
+        ),
+        enable_souporaba=options.get(
+            CONF_ENABLE_SOUPORABA,
+            DEFAULT_ENABLE_SOUPORABA,
         ),
     )
 
@@ -165,6 +171,9 @@ class MojElektroSensor(CoordinatorEntity, SensorEntity):
             self._attr_device_class = SensorDeviceClass.POWER
             self._attr_state_class = SensorStateClass.MEASUREMENT
             self._attr_icon = "mdi:flash"
+        elif measurement_name.startswith("souporaba_"):
+            self._attr_state_class = SensorStateClass.MEASUREMENT
+            self._attr_icon = "mdi:account-switch"
         else:
             self._attr_native_unit_of_measurement = UnitOfEnergy.KILO_WATT_HOUR
             self._attr_device_class = SensorDeviceClass.ENERGY
