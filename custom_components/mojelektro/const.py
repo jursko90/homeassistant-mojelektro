@@ -15,6 +15,7 @@ CONF_ENABLE_DAILY = "enable_daily"
 CONF_ENABLE_TOTAL = "enable_total"
 CONF_ENABLE_TARIFF_BLOCKS = "enable_tariff_blocks"
 CONF_ENABLE_CONTRACTED_POWER = "enable_contracted_power"
+CONF_ENABLE_SOUPORABA = "enable_souporaba"
 
 DEFAULT_DECIMAL = 4
 DEFAULT_UPDATE_INTERVAL = 15
@@ -24,6 +25,7 @@ DEFAULT_ENABLE_DAILY = True
 DEFAULT_ENABLE_TOTAL = True
 DEFAULT_ENABLE_TARIFF_BLOCKS = True
 DEFAULT_ENABLE_CONTRACTED_POWER = True
+DEFAULT_ENABLE_SOUPORABA = False
 
 MIN_UPDATE_INTERVAL = 5
 MAX_UPDATE_INTERVAL = 180
@@ -67,3 +69,10 @@ TARIFF_BLOCK_SENSORS = {
 CONTRACTED_POWER_SENSORS = tuple(
     f"casovni_blok_{block_number}" for block_number in range(1, 6)
 )
+
+SOUPORABA_SENSORS = {
+    "total": "souporaba_total",
+    "POTRJENA": "souporaba_confirmed",
+    "V_IZVAJANJU": "souporaba_in_progress",
+    "ZAVRNJENA": "souporaba_rejected",
+}
