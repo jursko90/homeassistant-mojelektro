@@ -1,9 +1,12 @@
 """Regression tests for Moj Elektro API processing."""
 
 import asyncio
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
 
-from custom_components.mojelektro.const import FIFTEEN_MINUTE_SENSORS
+from custom_components.mojelektro.const import (
+    FIFTEEN_MINUTE_SENSORS,
+    TOTAL_REGISTER_SENSORS,
+)
 from custom_components.mojelektro.moj_elektro_api import MojElektroApi
 
 
@@ -28,6 +31,14 @@ class StubMojElektroApi(MojElektroApi):
                     "oznaka": "A-",
                     "readingType": "dynamic-a-minus",
                 },
+            ]
+
+        if path == "/reading-qualities":
+            return [
+                {
+                    "readingQualityType": "ESTIMATED",
+                    "description": "Estimated reading",
+                }
             ]
 
         if path == "/meter-readings":
@@ -113,3 +124,126 @@ def test_interval_sensor_uses_latest_published_reading():
     )
 
     assert result["15min_input"] == 0.13
+
+
+def test_reading_quality_catalog_is_attached_to_metadata():
+    """Quality codes should be explained without rejecting the reading."""
+    api = StubMojElektroApi()
+    api._tag_by_reading_type = {"dynamic-a-plus": "A+"}
+
+    asyncio.run(api.get_reading_qualities())
+
+    data = [
+        {
+            "readingType": "dynamic-a-plus",
+            "intervalReadings": [
+                {
+                    "timestamp": "2026-09-20T10:30:00+02:00",
+                    "value": "0.1300",
+                    "readingQualities": [
+                        {"readingQualityType": "ESTIMATED"}
+                    ],
+                }
+            ],
+        }
+    ]
+
+    result = api.sensors_output(
+        data,
+        FIFTEEN_MINUTE_SENSORS,
+        interval=True,
+    )
+
+    assert result["15min_input"] == 0.13
+    metadata = api.last_reading_metadata["15min_input"]
+    assert metadata["reading_valid"] is False
+    assert metadata["reading_qualities"] == [
+        {
+            "code": "ESTIMATED",
+            "description": "Estimated reading",
+        }
+    ]
+
+
+def test_total_register_uses_latest_raw_meter_state():
+    """Total sensors should expose cumulative register state, not a delta."""
+    api = MojElektroApi("token", "meter", 4, None)
+    api._tag_by_reading_type = {"daily-a-plus": "A+_T0"}
+
+    result = api.total_registers_output(
+        [
+            {
+                "readingType": "daily-a-plus",
+                "intervalReadings": [
+                    {
+                        "timestamp": "2026-09-19T00:00:00+02:00",
+                        "value": "1200.0",
+                    },
+                    {
+                        "timestamp": "2026-09-20T00:00:00+02:00",
+                        "value": "1212.5",
+                    },
+                ],
+            }
+        ],
+        TOTAL_REGISTER_SENSORS,
+    )
+
+    assert result["total_input"] == 1212.5
+
+
+def test_tariff_blocks_ignore_partial_newer_day():
+    """Daily tariff totals should use the latest complete 15-minute day."""
+    api = MojElektroApi("token", "meter", 4, None)
+    api._tag_by_reading_type = {"dynamic-a-plus": "A+"}
+
+    complete_day = date(2026, 9, 19)
+    complete_readings = []
+    interval_end = datetime(
+        2026,
+        9,
+        19,
+        0,
+        15,
+        tzinfo=timezone(timedelta(hours=2)),
+    )
+    for index in range(96):
+        complete_readings.append(
+            {
+                "timestamp": (
+                    interval_end + timedelta(minutes=15 * index)
+                ).isoformat(),
+                "value": "1.0",
+            }
+        )
+
+    partial_readings = [
+        {
+            "timestamp": datetime(
+                2026,
+                9,
+                20,
+                0,
+                15 + 15 * index,
+                tzinfo=timezone(timedelta(hours=2)),
+            ).isoformat(),
+            "value": "100.0",
+        }
+        for index in range(3)
+    ]
+
+    result = api.consumption_by_block(
+        [
+            {
+                "readingType": "dynamic-a-plus",
+                "intervalReadings": complete_readings + partial_readings,
+            }
+        ]
+    )
+
+    assert round(sum(result.values()), 4) == 96.0
+    assert {
+        metadata["source_date"]
+        for sensor, metadata in api.last_reading_metadata.items()
+        if sensor.startswith("daily_input_blok_")
+    } == {complete_day.isoformat()}
