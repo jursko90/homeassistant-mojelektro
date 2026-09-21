@@ -1,11 +1,10 @@
-[![hacs default](https://img.shields.io/badge/HACS-Default-green.svg)](https://hacs.xyz)
-[![GitHub issues](https://img.shields.io/github/issues/frlequ/homeassistant-mojelektro)](https://github.com/frlequ/homeassistant-mojelektro/issues) 
+[![HACS Custom](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://hacs.xyz)
+[![GitHub issues](https://img.shields.io/github/issues/jursko90/homeassistant-mojelektro)](https://github.com/jursko90/homeassistant-mojelektro/issues) 
 ![GitHub User's stars](https://img.shields.io/github/stars/frlequ)
-![GitHub Repo stars](https://img.shields.io/github/stars/frlequ/homeassistant-mojelektro)
+![GitHub Repo stars](https://img.shields.io/github/stars/jursko90/homeassistant-mojelektro)
 
 
-# Home Assistant Integration of Moj Elektro electricity meter 
-
+# Home Assistant Integration of Moj Elektro electricity meter\n\n> [!NOTE]\n> This repository is a maintained fork of the original `frlequ/homeassistant-mojelektro` project. The original MIT license and attribution are preserved.\n
 This is an updated version of the custom component for integrating electric utility meter data into Home Assistant. It no longer requires a local certificate to access Moj Elektro but utilizes a **new API** service provided by Informatika.si.
 
 ![Screenshot of a Moj Electro in Home Assistant using Apex Chart Card.](/assets/energy.jpg)
@@ -19,18 +18,18 @@ This is an updated version of the custom component for integrating electric util
 ## Setup API
 
 1. Log in to Mojelektro.si using any available login options.
-2. Under `Moj Profil`, find the option to create a token `Kreiraj žeton`. Use unlimited expiration and click  `Create Token.`
+2. Under `API storitve`, find the option to create a token `Kreiraj žeton`. Use the desired expiration and click `Kreiraj žeton`.
 4. Copy the newly generated token. You'll need it in the configuration step.
 5. Your `meter_id` is `EIMM` number found und `Merilna mesta/merilne točke`
 
 
 ## Installation
 1. **Either**
-    - Method 1 _(easiest)_: Find and download `Moj Elektro` `integration` in HACS. Moj Elektro is now part of default HACS repository.
+    - Method 1 _(recommended for this fork)_: In HACS, add `https://github.com/jursko90/homeassistant-mojelektro` as a **Custom repository** with category **Integration**, then install `Moj Elektro`.
     
     - Method 2: [![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=frlequ&repository=homeassistant-mojelektro&category=integration)
     
-    - Method 3: Manually copy `mojelektro` folder from [latest release](https://github.com/frlequ/homeassistant-mojelektro/releases/latest) to `custom_components` folder.
+    - Method 3: Manually copy `mojelektro` folder from [latest release](https://github.com/jursko90/homeassistant-mojelektro/releases/latest) to `custom_components` folder.
 2. _After download restart Home Assistant!_
 
 ## Configuration
