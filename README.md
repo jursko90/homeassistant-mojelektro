@@ -2,8 +2,7 @@
 
 [![Version](https://img.shields.io/badge/version-0.2.7-blue.svg)](https://github.com/jursko90/homeassistant-mojelektro)
 [![Python check](https://github.com/jursko90/homeassistant-mojelektro/actions/workflows/python_check.yml/badge.svg)](https://github.com/jursko90/homeassistant-mojelektro/actions/workflows/python_check.yml)
-[![Hassfest](https://github.com/jursko90/homeassistant-mojelektro/actions/workflows/validate.yaml/badge.svg)](https://github.com/jursko90/homeassistant-mojelektro/actions/workflows/validate.yaml)
-[![HACS](https://github.com/jursko90/homeassistant-mojelektro/actions/workflows/hacs_check.yml/badge.svg)](https://github.com/jursko90/homeassistant-mojelektro/actions/workflows/hacs_check.yml)
+[![Release validation](https://github.com/jursko90/homeassistant-mojelektro/actions/workflows/release_validation.yml/badge.svg)](https://github.com/jursko90/homeassistant-mojelektro/actions/workflows/release_validation.yml)
 [![HACS Custom](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://hacs.xyz/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![GitHub stars](https://img.shields.io/github/stars/jursko90/homeassistant-mojelektro)](https://github.com/jursko90/homeassistant-mojelektro/stargazers)
