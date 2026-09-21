@@ -12,6 +12,13 @@
         "data_description": {
           "decimal": "Leave empty for default (4) or enter decimal places for energy sensors (0-10)."
         }
+      },
+      "reauth_confirm": {
+        "title": "Reconnect to Moj Elektro",
+        "description": "The API token for meter {meter_id} is no longer valid. Enter a new token.",
+        "data": {
+          "token": "Token"
+        }
       }
     },
     "error": {
@@ -20,7 +27,8 @@
       "unknown": "An unknown error occurred."
     },
     "abort": {
-      "already_configured": "This device is already configured."
+      "already_configured": "This device is already configured.",
+      "reauth_successful": "Re-authentication was successful."
     }
   }
 }
