@@ -1090,3 +1090,52 @@ def test_tariff_day_rejects_off_grid_interval():
             }
         ]
     ) == {}
+
+
+class CombinedIntervalRequestStub(MojElektroApi):
+    """Capture interval requests made by getData."""
+
+    def __init__(self):
+        super().__init__(
+            "token",
+            "meter",
+            4,
+            None,
+            enable_daily=False,
+            enable_total=False,
+            enable_tariff_blocks=False,
+            enable_contracted_power=False,
+            extra_reading_tags=("P+",),
+        )
+        self.calls = []
+        self._reading_types_by_tag = {
+            "A+": {"readingType": "a-plus"},
+            "A-": {"readingType": "a-minus"},
+            "P+": {
+                "readingType": "p-plus",
+                "naziv": "Power",
+                "perioda": "15 min",
+                "vrsta": "KOLICINA",
+            },
+        }
+        self._tag_by_reading_type = {
+            "a-plus": "A+",
+            "a-minus": "A-",
+            "p-plus": "P+",
+        }
+
+    async def get_meter_readings(self, tags, *, start_date, end_date):
+        self.calls.append(set(tags))
+        return []
+
+    async def get_reading_qualities(self, *, force_refresh=False):
+        return []
+
+
+def test_advanced_and_builtin_interval_tags_share_one_api_request():
+    """Advanced interval registers should not add a duplicate meter-readings call."""
+    api = CombinedIntervalRequestStub()
+
+    asyncio.run(api.getData())
+
+    assert api.calls == [{"A+", "A-", "P+"}]
