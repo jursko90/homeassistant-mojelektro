@@ -76,3 +76,5 @@ SOUPORABA_SENSORS = {
     "V_IZVAJANJU": "souporaba_in_progress",
     "ZAVRNJENA": "souporaba_rejected",
 }
+
+LAST_PUBLISHED_READING_SENSOR = "last_published_reading"
