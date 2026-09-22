@@ -859,6 +859,29 @@ class MojElektroApi:
         encoded = re.sub(r"_+", "_", encoded).strip("_")
         return f"reading_{encoded or 'unknown'}"
 
+    @staticmethod
+    def _period_to_timedelta(period: Any) -> timedelta | None:
+        """Parse common API period labels into a duration."""
+        if period is None:
+            return None
+
+        text = str(period).strip().lower().replace(",", ".")
+        match = re.fullmatch(
+            r"(?P<value>\d+(?:\.\d+)?)\s*(?P<unit>min|m|h|hour|hours|d|day|days)",
+            text,
+        )
+        if match is None:
+            return None
+
+        value = float(match.group("value"))
+        unit = match.group("unit")
+
+        if unit in {"min", "m"}:
+            return timedelta(minutes=value)
+        if unit in {"h", "hour", "hours"}:
+            return timedelta(hours=value)
+        return timedelta(days=value)
+
     def prepare_dynamic_sensor_metadata(self) -> None:
         """Prepare selected dynamic entities even before readings exist."""
         catalogue = self._reading_types_by_tag or {}
@@ -912,21 +935,20 @@ class MojElektroApi:
             )
 
             reset_at = None
-            period = str(definition.get("perioda") or "").lower()
-            if "15" in period:
-                raw_timestamp = str(
-                    latest.get("timestamp") or ""
-                )
-                if raw_timestamp:
-                    try:
-                        reset_at = (
-                            datetime.fromisoformat(
-                                raw_timestamp.replace("Z", "+00:00")
-                            )
-                            - timedelta(minutes=15)
-                        ).isoformat()
-                    except ValueError:
-                        reset_at = None
+            period_delta = self._period_to_timedelta(
+                definition.get("perioda")
+            )
+            raw_timestamp = str(latest.get("timestamp") or "")
+            if period_delta is not None and raw_timestamp:
+                try:
+                    reset_at = (
+                        datetime.fromisoformat(
+                            raw_timestamp.replace("Z", "+00:00")
+                        )
+                        - period_delta
+                    ).isoformat()
+                except ValueError:
+                    reset_at = None
 
             self._remember_reading_metadata(
                 sensor,
