@@ -230,6 +230,13 @@ class MojeElektroOptionsFlow(config_entries.OptionsFlowWithReload):
     async def async_step_init(self, user_input=None):
         """Manage integration options."""
         if user_input is not None:
+            if CONF_DECIMAL in self.config_entry.data:
+                legacy_data = dict(self.config_entry.data)
+                legacy_data[CONF_DECIMAL] = user_input[CONF_DECIMAL]
+                self.hass.config_entries.async_update_entry(
+                    self.config_entry,
+                    data=legacy_data,
+                )
             return self.async_create_entry(data=user_input)
 
         current = self.config_entry.options
