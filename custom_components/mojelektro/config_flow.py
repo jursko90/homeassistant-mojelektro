@@ -62,6 +62,34 @@ def _meter_id_already_configured(entries, meter_id: str) -> bool:
     )
 
 
+def _build_extra_reading_choices(
+    catalogue: dict,
+    selected,
+) -> dict[str, str]:
+    """Build advanced-reading choices while preserving saved selections."""
+    choices: dict[str, str] = {}
+    built_in_tags = set(FIFTEEN_MINUTE_SENSORS) | set(DAILY_SENSORS)
+
+    for tag, definition in sorted(catalogue.items()):
+        if tag in built_in_tags:
+            continue
+
+        label = (
+            definition.get("naziv")
+            or definition.get("opis")
+            or tag
+        )
+        period = definition.get("perioda")
+        if period:
+            label = f"{label} ({period})"
+        choices[tag] = f"{tag} — {label}"
+
+    for tag in selected:
+        choices.setdefault(tag, tag)
+
+    return choices
+
+
 async def async_validate_connection(
     hass,
     token: str,
@@ -205,8 +233,6 @@ class MojeElektroOptionsFlow(config_entries.OptionsFlowWithReload):
             CONF_EXTRA_READING_TAGS,
             DEFAULT_EXTRA_READING_TAGS,
         )
-        choices: dict[str, str] = {}
-
         api = MojElektroApi(
             self.config_entry.data[CONF_TOKEN],
             self.config_entry.data[CONF_METER_ID],
@@ -222,24 +248,10 @@ class MojeElektroOptionsFlow(config_entries.OptionsFlowWithReload):
             )
             catalogue = {}
 
-        built_in_tags = set(FIFTEEN_MINUTE_SENSORS) | set(DAILY_SENSORS)
-        for tag, definition in sorted(catalogue.items()):
-            if tag in built_in_tags:
-                continue
-            label = (
-                definition.get("naziv")
-                or definition.get("opis")
-                or tag
-            )
-            period = definition.get("perioda")
-            if period:
-                label = f"{label} ({period})"
-            choices[tag] = f"{tag} — {label}"
-
-        for tag in selected:
-            choices.setdefault(tag, tag)
-
-        return choices
+        return _build_extra_reading_choices(
+            catalogue,
+            selected,
+        )
 
     async def async_step_init(self, user_input=None):
         """Manage integration options."""
