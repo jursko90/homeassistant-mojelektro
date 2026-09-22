@@ -16,6 +16,7 @@ from .const import (
     TARIFF_BLOCK_SENSORS,
     SOUPORABA_SENSORS,
     TOTAL_REGISTER_SENSORS,
+    CONF_DECIMAL,
     CONF_METER_ID,
 )
 
@@ -80,6 +81,32 @@ def _migrate_legacy_sensor_unique_ids(
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     """Set up the integration domain."""
+    return True
+
+
+async def async_migrate_entry(
+    hass: HomeAssistant,
+    entry: ConfigEntry,
+) -> bool:
+    """Migrate legacy config-entry data to the 0.3.0 schema."""
+    if entry.version > 2:
+        return False
+
+    if entry.version < 2:
+        data = dict(entry.data)
+        options = dict(entry.options)
+
+        legacy_decimal = data.pop(CONF_DECIMAL, None)
+        if legacy_decimal is not None and CONF_DECIMAL not in options:
+            options[CONF_DECIMAL] = legacy_decimal
+
+        hass.config_entries.async_update_entry(
+            entry,
+            data=data,
+            options=options,
+            version=2,
+        )
+
     return True
 
 
