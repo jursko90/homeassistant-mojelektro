@@ -268,3 +268,44 @@ def test_souporaba_summary_exposes_counts_only():
     }
     assert "secret-a" not in repr(result)
     assert "secret-b" not in repr(result)
+
+
+def test_daily_and_monthly_reset_metadata():
+    """Daily/monthly deltas should expose their actual reset boundaries."""
+    api = MojElektroApi("token", "meter", 4, None)
+    api._tag_by_reading_type = {"daily-a-plus": "A+_T0"}
+
+    result = api.sensors_output(
+        [
+            {
+                "readingType": "daily-a-plus",
+                "intervalReadings": [
+                    {
+                        "timestamp": "2026-09-01T00:00:00+02:00",
+                        "value": "1000.0",
+                    },
+                    {
+                        "timestamp": "2026-09-20T00:00:00+02:00",
+                        "value": "1120.0",
+                    },
+                    {
+                        "timestamp": "2026-09-21T00:00:00+02:00",
+                        "value": "1127.5",
+                    },
+                ],
+            }
+        ],
+        {"A+_T0": "daily_input"},
+        interval=False,
+    )
+
+    assert result["daily_input"] == 7.5
+    assert result["monthly_input"] == 127.5
+    assert (
+        api.last_reading_metadata["daily_input"]["last_reset"]
+        == "2026-09-20T00:00:00+02:00"
+    )
+    assert (
+        api.last_reading_metadata["monthly_input"]["last_reset"]
+        == "2026-09-01T00:00:00+02:00"
+    )
