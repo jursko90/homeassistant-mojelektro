@@ -270,10 +270,10 @@ def test_souporaba_summary_exposes_counts_only():
     )
 
     assert result == {
-        "souporaba_total": 4.0,
-        "souporaba_confirmed": 2.0,
-        "souporaba_in_progress": 1.0,
-        "souporaba_rejected": 1.0,
+        "souporaba_total": 4,
+        "souporaba_confirmed": 2,
+        "souporaba_in_progress": 1,
+        "souporaba_rejected": 1,
     }
     assert "secret-a" not in repr(result)
     assert "secret-b" not in repr(result)
