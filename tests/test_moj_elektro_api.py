@@ -9,6 +9,7 @@ from custom_components.mojelektro.const import (
 )
 from custom_components.mojelektro.moj_elektro_api import (
     MojElektroApi,
+    MojElektroAuthError,
     MojElektroConnectionError,
     MojElektroRequestError,
 )
