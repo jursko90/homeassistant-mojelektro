@@ -41,7 +41,8 @@
           "enable_tariff_blocks": "Vključi izračun porabe po časovnih blokih",
           "enable_contracted_power": "Vključi dogovorjene moči",
           "enable_total": "Vključi kumulativna stanja števca",
-          "enable_souporaba": "Vključi povzetek souporabe"
+          "enable_souporaba": "Vključi povzetek souporabe",
+          "stale_after_hours": "Opozori na zastarele podatke po (urah)"
         },
         "data_description": {
           "decimal": "Število decimalnih mest pri številskih vrednostih senzorjev.",
@@ -50,7 +51,8 @@
           "enable_tariff_blocks": "Ti senzorji se lokalno izračunajo po slovenskem urniku časovnih blokov.",
           "enable_contracted_power": "Prebere dogovorjeno moč blokov 1-5 iz uradnih podatkov merilne točke.",
           "enable_total": "Doda kumulativne registre porabe/oddaje, primerne za Home Assistant Energy Dashboard.",
-          "enable_souporaba": "Prikaže samo število souporab po statusih; EIMM, GSRN in kontaktni podatki niso izpostavljeni kot stanja entitet."
+          "enable_souporaba": "Prikaže samo število souporab po statusih; EIMM, GSRN in kontaktni podatki niso izpostavljeni kot stanja entitet.",
+          "stale_after_hours": "Če najnovejša objavljena meritev preseže ta prag, diagnostični senzor javi težavo. Dovoljeno 24–168 ur."
         }
       }
     }
@@ -166,6 +168,11 @@
       },
       "souporaba_rejected": {
         "name": "Zavrnjene souporabe"
+      }
+    },
+    "binary_sensor": {
+      "data_stale": {
+        "name": "Podatki so zastareli"
       }
     }
   }
