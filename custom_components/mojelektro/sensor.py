@@ -9,12 +9,12 @@ from homeassistant.components.sensor import (
     SensorStateClass,
 )
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import UnitOfEnergy, UnitOfPower
+from homeassistant.const import EntityCategory, UnitOfEnergy, UnitOfPower
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceEntryType
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import CONF_METER_ID, DOMAIN, VERSION
+from .const import CONF_METER_ID, DOMAIN, LAST_PUBLISHED_READING_SENSOR, VERSION
 from .moj_elektro_api import MojElektroApi
 
 _LOGGER = logging.getLogger(__name__)
@@ -66,7 +66,13 @@ class MojElektroSensor(CoordinatorEntity, SensorEntity):
         )
         self._attr_name = f"Moj Elektro {measurement_name.replace('_', ' ')}"
 
-        if measurement_name.startswith("casovni_blok"):
+        if measurement_name == LAST_PUBLISHED_READING_SENSOR:
+            self._attr_device_class = SensorDeviceClass.TIMESTAMP
+            self._attr_entity_category = EntityCategory.DIAGNOSTIC
+            self._attr_icon = "mdi:clock-check-outline"
+            self._attr_has_entity_name = True
+            self._attr_translation_key = "last_published_reading"
+        elif measurement_name.startswith("casovni_blok"):
             self._attr_native_unit_of_measurement = UnitOfPower.KILO_WATT
             self._attr_device_class = SensorDeviceClass.POWER
             self._attr_state_class = SensorStateClass.MEASUREMENT
@@ -142,6 +148,10 @@ class MojElektroSensor(CoordinatorEntity, SensorEntity):
     def native_value(self):
         """Return the native sensor value."""
         data = self.coordinator.data.get(self.measurement_name)
+
+        if self.measurement_name == LAST_PUBLISHED_READING_SENSOR:
+            return data if isinstance(data, datetime) else None
+
         if data is not None:
             try:
                 self._last_known_state = float(data)
