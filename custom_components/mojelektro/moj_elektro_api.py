@@ -6,6 +6,7 @@ import aiohttp
 import asyncio
 from datetime import date, datetime, timedelta
 import logging
+import math
 import re
 from typing import Any
 
@@ -661,6 +662,14 @@ class MojElektroApi:
         return self._tag_by_reading_type.get(reading_type)
 
     @staticmethod
+    def _finite_float(value: Any) -> float:
+        """Parse a finite numeric API value."""
+        parsed = float(value)
+        if not math.isfinite(parsed):
+            raise ValueError("non-finite numeric value")
+        return parsed
+
+    @staticmethod
     def _sorted_readings(block: dict[str, Any]) -> list[dict[str, Any]]:
         """Return timestamped readings in chronological order."""
         readings = block.get("intervalReadings") or []
@@ -750,7 +759,7 @@ class MojElektroApi:
                 latest = readings[-1]
                 try:
                     sensor_output[sensor] = round(
-                        float(latest["value"]),
+                        self._finite_float(latest["value"]),
                         self.decimal,
                     )
                     raw_timestamp = str(
@@ -778,8 +787,8 @@ class MojElektroApi:
                 continue
 
             try:
-                previous_value = float(readings[-2]["value"])
-                latest_value = float(readings[-1]["value"])
+                previous_value = self._finite_float(readings[-2]["value"])
+                latest_value = self._finite_float(readings[-1]["value"])
                 latest_timestamp = datetime.fromisoformat(
                     str(readings[-1]["timestamp"]).replace("Z", "+00:00")
                 )
@@ -805,7 +814,7 @@ class MojElektroApi:
                 continue
 
             try:
-                month_first_value = float(month_readings[0]["value"])
+                month_first_value = self._finite_float(month_readings[0]["value"])
             except (KeyError, TypeError, ValueError):
                 continue
 
@@ -876,7 +885,7 @@ class MojElektroApi:
 
             latest = readings[-1]
             try:
-                output[sensor] = round(float(latest["value"]), self.decimal)
+                output[sensor] = round(self._finite_float(latest["value"]), self.decimal)
             except (KeyError, TypeError, ValueError):
                 continue
 
@@ -979,7 +988,7 @@ class MojElektroApi:
             sensor = self.sensor_key_for_tag(tag)
             try:
                 output[sensor] = round(
-                    float(latest["value"]),
+                    self._finite_float(latest["value"]),
                     self.decimal,
                 )
             except (KeyError, TypeError, ValueError):
@@ -1105,7 +1114,7 @@ class MojElektroApi:
                     raw_value = power.get(f"casovniBlok{index}")
                     try:
                         value = (
-                            float(raw_value)
+                            MojElektroApi._finite_float(raw_value)
                             if raw_value is not None
                             else None
                         )
@@ -1141,7 +1150,7 @@ class MojElektroApi:
                         timestamp.replace("Z", "+00:00")
                     )
                     interval_start = interval_end - timedelta(minutes=15)
-                    float(reading["value"])
+                    self._finite_float(reading["value"])
                 except (KeyError, TypeError, ValueError):
                     continue
 
@@ -1181,7 +1190,7 @@ class MojElektroApi:
         for _interval_start, reading in selected_readings:
             try:
                 timestamp = str(reading["timestamp"])
-                value = float(reading["value"])
+                value = self._finite_float(reading["value"])
                 block_num = network_tariff_block(timestamp)
             except (KeyError, TypeError, ValueError):
                 continue
