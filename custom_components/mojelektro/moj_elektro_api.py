@@ -107,6 +107,19 @@ class MojElektroApi:
             "X-API-TOKEN": self.token,
         }
 
+    @staticmethod
+    def _safe_path_label(path: str) -> str:
+        """Redact identifiers embedded in API paths used in logs/errors."""
+        if path.startswith("/merilno-mesto/"):
+            return "/merilno-mesto/{identifikator}"
+        if path.startswith("/merilna-tocka/"):
+            return "/merilna-tocka/{gsrn}"
+        if path.startswith("/souporaba/") and path != (
+            "/souporaba/pregled-obracunov-omreznine"
+        ):
+            return "/souporaba/{sifra}"
+        return path
+
     async def _request_json(
         self,
         path: str,
@@ -115,6 +128,7 @@ class MojElektroApi:
     ) -> Any:
         """Fetch and validate JSON from the Moj Elektro API."""
         url = f"{API_BASE_URL}{path}"
+        safe_path = self._safe_path_label(path)
         try:
             async with asyncio.timeout(REQUEST_TIMEOUT_SECONDS):
                 async with self.session.get(
@@ -131,7 +145,7 @@ class MojElektroApi:
                         )
                     if response.status in (400, 404):
                         raise MojElektroRequestError(
-                            f"Moj Elektro rejected {path} "
+                            f"Moj Elektro rejected {safe_path} "
                             f"(HTTP {response.status})"
                         )
                     if response.status == 429:
@@ -147,7 +161,7 @@ class MojElektroApi:
                         )
                     raise MojElektroConnectionError(
                         f"Moj Elektro API returned HTTP "
-                        f"{response.status} for {path}"
+                        f"{response.status} for {safe_path}"
                     )
         except TimeoutError as err:
             raise MojElektroConnectionError(
