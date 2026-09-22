@@ -84,3 +84,51 @@ def test_duplicate_meter_detection_does_not_depend_on_unique_id():
 
     assert config_flow._meter_id_already_configured(entries, "meter-a")
     assert not config_flow._meter_id_already_configured(entries, "meter-c")
+
+
+def test_advanced_choices_exclude_builtin_tags():
+    """Built-in A+/A- sensors must not be duplicated in Advanced choices."""
+    choices = config_flow._build_extra_reading_choices(
+        {
+            "A+": {
+                "naziv": "Built-in import",
+                "perioda": "15 min",
+            },
+            "P+": {
+                "naziv": "Power import",
+                "perioda": "15 min",
+            },
+        },
+        (),
+    )
+
+    assert "A+" not in choices
+    assert choices["P+"] == "P+ — Power import (15 min)"
+
+
+def test_advanced_choices_preserve_saved_selection_without_catalogue():
+    """Temporary catalogue failure must not make a saved option disappear."""
+    choices = config_flow._build_extra_reading_choices(
+        {},
+        ("P+", "Q-"),
+    )
+
+    assert choices == {
+        "P+": "P+",
+        "Q-": "Q-",
+    }
+
+
+def test_advanced_choices_use_description_when_name_is_missing():
+    """Catalogue description should provide a useful fallback label."""
+    choices = config_flow._build_extra_reading_choices(
+        {
+            "R+": {
+                "opis": "Reactive energy",
+                "perioda": "1 h",
+            }
+        },
+        (),
+    )
+
+    assert choices["R+"] == "R+ — Reactive energy (1 h)"
