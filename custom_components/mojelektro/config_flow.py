@@ -6,6 +6,7 @@ import voluptuous as vol
 
 from homeassistant import config_entries
 from homeassistant.core import callback
+from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .const import (
@@ -14,6 +15,7 @@ from .const import (
     CONF_ENABLE_CONTRACTED_POWER,
     CONF_ENABLE_DAILY,
     CONF_ENABLE_TOTAL,
+    CONF_EXTRA_READING_TAGS,
     CONF_ENABLE_TARIFF_BLOCKS,
     CONF_ENABLE_SOUPORABA,
     CONF_LOOKBACK_DAYS,
@@ -26,12 +28,15 @@ from .const import (
     DEFAULT_ENABLE_CONTRACTED_POWER,
     DEFAULT_ENABLE_DAILY,
     DEFAULT_ENABLE_TOTAL,
+    DEFAULT_EXTRA_READING_TAGS,
     DEFAULT_ENABLE_TARIFF_BLOCKS,
     DEFAULT_ENABLE_SOUPORABA,
     DEFAULT_LOOKBACK_DAYS,
     DEFAULT_UPDATE_INTERVAL,
     DEFAULT_STALE_AFTER_HOURS,
     DOMAIN,
+    DAILY_SENSORS,
+    FIFTEEN_MINUTE_SENSORS,
     MAX_LOOKBACK_DAYS,
     MAX_UPDATE_INTERVAL,
     MAX_STALE_AFTER_HOURS,
@@ -152,12 +157,55 @@ class MojeElektroFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
 class MojeElektroOptionsFlow(config_entries.OptionsFlowWithReload):
     """Manage runtime settings for Moj Elektro."""
 
+    async def _async_extra_reading_choices(self) -> dict[str, str]:
+        """Load optional reading types from the live official catalogue."""
+        selected = self.config_entry.options.get(
+            CONF_EXTRA_READING_TAGS,
+            DEFAULT_EXTRA_READING_TAGS,
+        )
+        choices: dict[str, str] = {}
+
+        api = MojElektroApi(
+            self.config_entry.data[CONF_TOKEN],
+            self.config_entry.data[CONF_METER_ID],
+            DEFAULT_DECIMAL,
+            async_get_clientsession(self.hass),
+        )
+        try:
+            catalogue = await api.get_reading_types()
+        except MojElektroError as err:
+            _LOGGER.debug(
+                "Unable to load optional reading types for options: %s",
+                err,
+            )
+            catalogue = {}
+
+        built_in_tags = set(FIFTEEN_MINUTE_SENSORS) | set(DAILY_SENSORS)
+        for tag, definition in sorted(catalogue.items()):
+            if tag in built_in_tags:
+                continue
+            label = (
+                definition.get("naziv")
+                or definition.get("opis")
+                or tag
+            )
+            period = definition.get("perioda")
+            if period:
+                label = f"{label} ({period})"
+            choices[tag] = f"{tag} — {label}"
+
+        for tag in selected:
+            choices.setdefault(tag, tag)
+
+        return choices
+
     async def async_step_init(self, user_input=None):
         """Manage integration options."""
         if user_input is not None:
             return self.async_create_entry(data=user_input)
 
         current = self.config_entry.options
+        extra_reading_choices = await self._async_extra_reading_choices()
 
         decimal_default = current.get(
             CONF_DECIMAL,
@@ -251,6 +299,15 @@ class MojeElektroOptionsFlow(config_entries.OptionsFlowWithReload):
                         max=MAX_STALE_AFTER_HOURS,
                     ),
                 ),
+                vol.Optional(
+                    CONF_EXTRA_READING_TAGS,
+                    default=list(
+                        current.get(
+                            CONF_EXTRA_READING_TAGS,
+                            DEFAULT_EXTRA_READING_TAGS,
+                        )
+                    ),
+                ): cv.multi_select(extra_reading_choices),
             }
         )
 
