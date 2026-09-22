@@ -177,8 +177,19 @@ class MojElektroApi:
             ) from err
 
     async def validate_token(self) -> bool:
-        """Validate the token and access to the configured metering point."""
-        await self.get_meter_site()
+        """Validate core API access for the configured metering point."""
+        reading_types = await self.get_reading_types()
+        tag = (
+            "A+"
+            if "A+" in reading_types
+            else next(iter(reading_types))
+        )
+        today = dt_util.now().date()
+        await self.get_meter_readings(
+            [tag],
+            start_date=today - timedelta(days=1),
+            end_date=today,
+        )
         return True
 
     @staticmethod
