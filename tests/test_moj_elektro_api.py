@@ -309,3 +309,24 @@ def test_daily_and_monthly_reset_metadata():
         api.last_reading_metadata["monthly_input"]["last_reset"]
         == "2026-09-01T00:00:00+02:00"
     )
+
+
+def test_latest_source_timestamp_uses_newest_published_register():
+    """Freshness diagnostic should reflect the newest source timestamp."""
+    api = MojElektroApi("token", "meter", 4, None)
+    api.last_reading_metadata = {
+        "15min_input": {
+            "source_timestamp": "2026-09-20T10:30:00+02:00",
+        },
+        "daily_input": {
+            "source_timestamp": "2026-09-21T00:00:00+02:00",
+        },
+        "total_input": {
+            "source_timestamp": "2026-09-20T00:00:00+02:00",
+        },
+    }
+
+    latest = api.latest_source_timestamp()
+
+    assert latest is not None
+    assert latest.isoformat() == "2026-09-21T00:00:00+02:00"
