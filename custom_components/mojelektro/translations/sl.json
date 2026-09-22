@@ -46,7 +46,7 @@
         },
         "data_description": {
           "decimal": "Število decimalnih mest pri številskih vrednostih senzorjev.",
-          "update_interval_minutes": "Kako pogosto Home Assistant preveri Moj Elektro. Ker podatki niso realnočasovni, zelo kratek interval navadno ni potreben.",
+          "update_interval_minutes": "Kako pogosto Home Assistant preveri Moj Elektro. Dovoljeno 5–1440 min; privzeto 60 min. Za takojšnje preverjanje uporabi gumb Osveži podatke.",
           "lookback_days": "Koliko dni naj integracija pregleda pri iskanju zadnje objavljene 15-min meritve.",
           "enable_tariff_blocks": "Ti senzorji se lokalno izračunajo po slovenskem urniku časovnih blokov.",
           "enable_contracted_power": "Prebere dogovorjeno moč blokov 1-5 iz uradnih podatkov merilne točke.",
