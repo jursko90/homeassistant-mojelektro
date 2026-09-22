@@ -385,7 +385,10 @@ class MojElektroApi:
                 continue
             counts[tag] = len(self._sorted_readings(block))
 
-        return max(counts.values(), default=0) < 2
+        if not counts:
+            return True
+
+        return any(count < 2 for count in counts.values())
 
     @staticmethod
     def _merge_interval_blocks(
