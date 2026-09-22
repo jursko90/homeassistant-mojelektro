@@ -22,6 +22,7 @@ from .const import (
     CONF_ENABLE_SOUPORABA,
     CONF_ENABLE_TARIFF_BLOCKS,
     CONF_ENABLE_TOTAL,
+    CONF_EXTRA_READING_TAGS,
     CONF_LOOKBACK_DAYS,
     CONF_METER_ID,
     CONF_TOKEN,
@@ -35,6 +36,7 @@ from .const import (
     DEFAULT_ENABLE_SOUPORABA,
     DEFAULT_ENABLE_TARIFF_BLOCKS,
     DEFAULT_ENABLE_TOTAL,
+    DEFAULT_EXTRA_READING_TAGS,
     DEFAULT_LOOKBACK_DAYS,
     DEFAULT_UPDATE_INTERVAL,
     DOMAIN,
@@ -205,6 +207,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         enable_souporaba=options.get(
             CONF_ENABLE_SOUPORABA,
             DEFAULT_ENABLE_SOUPORABA,
+        ),
+        extra_reading_tags=options.get(
+            CONF_EXTRA_READING_TAGS,
+            DEFAULT_EXTRA_READING_TAGS,
         ),
     )
 
