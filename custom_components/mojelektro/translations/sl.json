@@ -19,8 +19,9 @@
     },
     "error": {
       "cannot_connect": "Povezava s storitvijo ni uspela.",
-      "invalid_auth": "Neveljaven API žeton ali EIMM.",
-      "unknown": "Prišlo je do neznane napake."
+      "invalid_auth": "API žeton ni veljaven ali nima dovoljenja za dostop.",
+      "unknown": "Prišlo je do neznane napake.",
+      "invalid_meter": "EIMM ni veljaven, ne obstaja ali ni dostopen s tem žetonom."
     },
     "abort": {
       "already_configured": "To merilno mesto je že konfigurirano.",
