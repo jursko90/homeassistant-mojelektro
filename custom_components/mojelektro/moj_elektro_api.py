@@ -589,18 +589,6 @@ class MojElektroApi:
         )
         return self._merge_interval_blocks(previous, current)
 
-    async def getMeterReadings(self, rType=None):
-        """Compatibility wrapper for code using the 0.2.x API method."""
-        today = dt_util.now().date()
-        if rType == "15min":
-            return await self.get_meter_readings(
-                list(FIFTEEN_MINUTE_SENSORS),
-                start_date=today - timedelta(days=self.lookback_days),
-                end_date=today,
-            )
-
-        return await self._get_daily_readings(today)
-
     async def getData(self) -> dict[str, Any]:
         """Fetch the configured sensor groups and preserve prior good values."""
         today = dt_util.now().date()
