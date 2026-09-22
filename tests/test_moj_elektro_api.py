@@ -1491,3 +1491,58 @@ def test_source_metadata_timestamp_uses_absolute_dst_order():
         api.last_reading_metadata["test_sensor"]["source_timestamp"]
         == "2026-10-25T02:15:00+01:00"
     )
+
+
+def test_preferred_reading_type_accepts_official_variants():
+    """Catalogue rows without primary readingType should remain usable."""
+    assert MojElektroApi._preferred_reading_type(
+        {
+            "readingType": "primary",
+            "readingTypeBrezObracuna": "non-billing",
+            "readingTypeObracun": "billing",
+        }
+    ) == "primary"
+    assert MojElektroApi._preferred_reading_type(
+        {
+            "readingTypeBrezObracuna": "non-billing",
+            "readingTypeObracun": "billing",
+        }
+    ) == "non-billing"
+    assert MojElektroApi._preferred_reading_type(
+        {
+            "readingTypeObracun": "billing",
+        }
+    ) == "billing"
+    assert MojElektroApi._preferred_reading_type({}) is None
+
+
+class ReadingTypeVariantStub(MojElektroApi):
+    """Expose a catalogue row that has only a non-primary official ID."""
+
+    async def _request_json(self, path, *, params=None):
+        assert path == "/reading-type"
+        return [
+            {
+                "oznaka": "P+",
+                "naziv": "Power",
+                "readingTypeBrezObracuna": "variant-id",
+                "vrsta": "KOLICINA",
+            }
+        ]
+
+
+def test_reading_type_catalogue_keeps_non_primary_variant():
+    """Official variant IDs must remain queryable even without readingType."""
+    api = ReadingTypeVariantStub("token", "meter", 4, None)
+
+    catalogue = asyncio.run(api.get_reading_types())
+
+    assert "P+" in catalogue
+    params, missing = api._build_meter_reading_params(
+        ["P+"],
+        start_date=date(2026, 9, 20),
+        end_date=date(2026, 9, 22),
+        reading_types=catalogue,
+    )
+    assert missing == []
+    assert ("option", "ReadingType=variant-id") in params
