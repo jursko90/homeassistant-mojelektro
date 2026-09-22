@@ -84,6 +84,8 @@ class MojElektroApi:
         self._reading_quality_descriptions: dict[str, str] = {}
         self.last_reading_metadata: dict[str, dict[str, Any]] = {}
         self.safe_meter_metadata: dict[str, Any] = {}
+        self._contracted_power_cache_date: date | None = None
+        self._contracted_power_cache: dict[str, float | None] = {}
 
     @property
     def headers(self) -> dict[str, str]:
@@ -607,10 +609,21 @@ class MojElektroApi:
                         float(latest["value"]),
                         self.decimal,
                     )
+                    raw_timestamp = str(
+                        latest.get("timestamp") or ""
+                    )
+                    reset_at = None
+                    if raw_timestamp:
+                        reset_at = (
+                            datetime.fromisoformat(
+                                raw_timestamp.replace("Z", "+00:00")
+                            )
+                            - timedelta(minutes=15)
+                        ).isoformat()
                     self._remember_reading_metadata(
                         sensor,
                         latest,
-                        last_reset=str(latest.get("timestamp") or "") or None,
+                        last_reset=reset_at,
                     )
                 except (KeyError, TypeError, ValueError):
                     _LOGGER.debug("Invalid latest interval reading for %s", sensor)
@@ -706,6 +719,13 @@ class MojElektroApi:
 
     async def get_casovni_blok(self) -> dict[str, float | None]:
         """Get currently valid contracted powers for tariff blocks."""
+        current_date = dt_util.now().date()
+        if (
+            self._contracted_power_cache_date == current_date
+            and self._contracted_power_cache
+        ):
+            return dict(self._contracted_power_cache)
+
         try:
             meter_site = await self.get_meter_site()
             gsrn_omto = self._extract_gsrn_omto(
@@ -715,9 +735,13 @@ class MojElektroApi:
                 return {}
 
             meter_point = await self.get_meter_point(gsrn_omto)
-            return self._extract_casovni_bloki(
+            result = self._extract_casovni_bloki(
                 meter_point.get("dogovorjeneMoci", [])
             )
+            if result:
+                self._contracted_power_cache = dict(result)
+                self._contracted_power_cache_date = current_date
+            return result
         except MojElektroAuthError:
             raise
         except MojElektroError as err:
