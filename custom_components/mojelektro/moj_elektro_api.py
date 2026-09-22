@@ -21,6 +21,7 @@ from .const import (
     DEFAULT_ENABLE_SOUPORABA,
     DEFAULT_LOOKBACK_DAYS,
     FIFTEEN_MINUTE_SENSORS,
+    LAST_PUBLISHED_READING_SENSOR,
     TOTAL_REGISTER_SENSORS,
     TARIFF_BLOCK_SENSORS,
     SOUPORABA_SENSORS,
@@ -76,7 +77,7 @@ class MojElektroApi:
         self.enable_contracted_power = bool(enable_contracted_power)
         self.enable_souporaba = bool(enable_souporaba)
 
-        self.last_data: dict[str, float | None] | None = None
+        self.last_data: dict[str, Any] | None = None
         self._reading_types_by_tag: dict[str, dict[str, Any]] | None = None
         self._tag_by_reading_type: dict[str, str] = {}
         self._reading_qualities: list[dict[str, Any]] | None = None
@@ -322,10 +323,10 @@ class MojElektroApi:
             end_date=today,
         )
 
-    async def getData(self) -> dict[str, float | None]:
+    async def getData(self) -> dict[str, Any]:
         """Fetch the configured sensor groups and preserve prior good values."""
         today = dt_util.now().date()
-        sensor_return: dict[str, float | None] = {}
+        sensor_return: dict[str, Any] = {}
 
         fifteen_data: list[dict[str, Any]] = []
         daily_data: list[dict[str, Any]] = []
@@ -413,6 +414,10 @@ class MojElektroApi:
                     err,
                 )
 
+        latest_source = self.latest_source_timestamp()
+        if latest_source is not None:
+            sensor_return[LAST_PUBLISHED_READING_SENSOR] = latest_source
+
         for sensor_name in self.expected_sensor_names():
             previous_value = (
                 self.last_data.get(sensor_name)
@@ -448,7 +453,28 @@ class MojElektroApi:
         if self.enable_souporaba:
             names.extend(SOUPORABA_SENSORS.values())
 
+        names.append(LAST_PUBLISHED_READING_SENSOR)
         return names
+
+    def latest_source_timestamp(self) -> datetime | None:
+        """Return the newest timestamp represented by the current readings."""
+        latest: datetime | None = None
+
+        for metadata in self.last_reading_metadata.values():
+            raw_timestamp = metadata.get("source_timestamp")
+            if not raw_timestamp:
+                continue
+            try:
+                parsed = datetime.fromisoformat(
+                    str(raw_timestamp).replace("Z", "+00:00")
+                )
+            except ValueError:
+                continue
+
+            if latest is None or parsed > latest:
+                latest = parsed
+
+        return latest
 
     def _tag_for_reading_type(self, reading_type: str) -> str | None:
         """Resolve an opaque API readingType ID back to its semantic label."""
