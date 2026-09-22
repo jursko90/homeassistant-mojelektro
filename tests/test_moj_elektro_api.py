@@ -330,3 +330,40 @@ def test_latest_source_timestamp_uses_newest_published_register():
 
     assert latest is not None
     assert latest.isoformat() == "2026-09-21T00:00:00+02:00"
+
+
+def test_safe_meter_metadata_excludes_personal_identifiers():
+    """Diagnostics metadata should contain technical fields only."""
+    safe = MojElektroApi._extract_safe_meter_metadata(
+        {
+            "naziv": "Private home",
+            "naslov": "Secret address",
+            "lastnik": {
+                "naziv": "Private owner",
+                "davcnaSt": "secret-tax-id",
+            },
+            "pogodbeniPodatki": {
+                "steviloFaz": 3,
+                "prikljucnaMoc": 14,
+                "dovoljenaMocOddaje": "11.0",
+                "obstoj15MinutneMeritve": True,
+                "daljinskoCitanje": True,
+            },
+            "tehnicniPodatki": {
+                "tipStevca": "Example meter",
+                "tovarniskaStevilkaMkn": "secret-serial",
+                "letoIzdelave": 2024,
+            },
+        }
+    )
+
+    assert safe == {
+        "stevilo_faz": 3,
+        "prikljucna_moc": 14,
+        "dovoljena_moc_oddaje": "11.0",
+        "daljinsko_citanje": True,
+        "obstoj_15_min_meritve": True,
+        "tip_stevca": "Example meter",
+        "leto_izdelave_stevca": 2024,
+    }
+    assert "secret" not in repr(safe)
