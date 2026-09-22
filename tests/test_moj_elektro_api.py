@@ -419,3 +419,85 @@ def test_contracted_power_metadata_is_cached_for_the_day():
     assert first["casovni_blok_1"] == 5.1
     assert api.site_calls == 1
     assert api.point_calls == 1
+
+
+def test_merge_interval_blocks_deduplicates_boundary_timestamp():
+    """Previous/current month fallback must not duplicate the shared boundary."""
+    merged = MojElektroApi._merge_interval_blocks(
+        [
+            {
+                "readingType": "daily-a-plus",
+                "intervalReadings": [
+                    {
+                        "timestamp": "2026-09-30T00:00:00+02:00",
+                        "value": "100.0",
+                    },
+                    {
+                        "timestamp": "2026-10-01T00:00:00+02:00",
+                        "value": "110.0",
+                    },
+                ],
+            }
+        ],
+        [
+            {
+                "readingType": "daily-a-plus",
+                "intervalReadings": [
+                    {
+                        "timestamp": "2026-10-01T00:00:00+02:00",
+                        "value": "110.0",
+                    },
+                    {
+                        "timestamp": "2026-10-02T00:00:00+02:00",
+                        "value": "115.0",
+                    },
+                ],
+            }
+        ],
+    )
+
+    assert len(merged) == 1
+    assert [
+        item["timestamp"] for item in merged[0]["intervalReadings"]
+    ] == [
+        "2026-09-30T00:00:00+02:00",
+        "2026-10-01T00:00:00+02:00",
+        "2026-10-02T00:00:00+02:00",
+    ]
+
+
+def test_monthly_delta_uses_latest_reading_month_only():
+    """Fallback history from the previous month must not inflate monthly totals."""
+    api = MojElektroApi("token", "meter", 4, None)
+    api._tag_by_reading_type = {"daily-a-plus": "A+_T0"}
+
+    result = api.sensors_output(
+        [
+            {
+                "readingType": "daily-a-plus",
+                "intervalReadings": [
+                    {
+                        "timestamp": "2026-09-30T00:00:00+02:00",
+                        "value": "1000.0",
+                    },
+                    {
+                        "timestamp": "2026-10-01T00:00:00+02:00",
+                        "value": "1010.0",
+                    },
+                    {
+                        "timestamp": "2026-10-02T00:00:00+02:00",
+                        "value": "1017.0",
+                    },
+                ],
+            }
+        ],
+        {"A+_T0": "daily_input"},
+        interval=False,
+    )
+
+    assert result["daily_input"] == 7.0
+    assert result["monthly_input"] == 7.0
+    assert (
+        api.last_reading_metadata["monthly_input"]["last_reset"]
+        == "2026-10-01T00:00:00+02:00"
+    )
