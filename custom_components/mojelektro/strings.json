@@ -19,8 +19,9 @@
     },
     "error": {
       "cannot_connect": "Failed to connect to the service.",
-      "invalid_auth": "Invalid API token or meter ID (EIMM).",
-      "unknown": "An unknown error occurred."
+      "invalid_auth": "The API token is invalid or is not authorized.",
+      "unknown": "An unknown error occurred.",
+      "invalid_meter": "The EIMM is invalid, does not exist, or is not accessible with this token."
     },
     "abort": {
       "already_configured": "This metering point is already configured.",
