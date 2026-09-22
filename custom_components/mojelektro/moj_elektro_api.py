@@ -5,6 +5,7 @@ from __future__ import annotations
 import aiohttp
 from datetime import date, datetime, timedelta
 import logging
+import re
 from typing import Any
 
 from homeassistant.util import dt as dt_util
@@ -19,6 +20,7 @@ from .const import (
     DEFAULT_ENABLE_TOTAL,
     DEFAULT_ENABLE_TARIFF_BLOCKS,
     DEFAULT_ENABLE_SOUPORABA,
+    DEFAULT_EXTRA_READING_TAGS,
     DEFAULT_LOOKBACK_DAYS,
     FIFTEEN_MINUTE_SENSORS,
     LAST_PUBLISHED_READING_SENSOR,
@@ -64,6 +66,7 @@ class MojElektroApi:
         enable_tariff_blocks: bool = DEFAULT_ENABLE_TARIFF_BLOCKS,
         enable_contracted_power: bool = DEFAULT_ENABLE_CONTRACTED_POWER,
         enable_souporaba: bool = DEFAULT_ENABLE_SOUPORABA,
+        extra_reading_tags=DEFAULT_EXTRA_READING_TAGS,
     ) -> None:
         self.token = token
         self.meter_id = meter_id
@@ -76,6 +79,9 @@ class MojElektroApi:
         self.enable_tariff_blocks = bool(enable_tariff_blocks)
         self.enable_contracted_power = bool(enable_contracted_power)
         self.enable_souporaba = bool(enable_souporaba)
+        self.extra_reading_tags = tuple(
+            dict.fromkeys(str(tag) for tag in extra_reading_tags)
+        )
 
         self.last_data: dict[str, Any] | None = None
         self._reading_types_by_tag: dict[str, dict[str, Any]] | None = None
@@ -84,6 +90,7 @@ class MojElektroApi:
         self._reading_quality_descriptions: dict[str, str] = {}
         self.last_reading_metadata: dict[str, dict[str, Any]] = {}
         self.safe_meter_metadata: dict[str, Any] = {}
+        self.dynamic_sensor_metadata: dict[str, dict[str, Any]] = {}
         self._contracted_power_cache_date: date | None = None
         self._contracted_power_cache: dict[str, float | None] = {}
 
@@ -434,6 +441,7 @@ class MojElektroApi:
 
         fifteen_data: list[dict[str, Any]] = []
         daily_data: list[dict[str, Any]] = []
+        extra_data: list[dict[str, Any]] = []
 
         requested_15_tags: set[str] = set()
         if self.enable_15min:
@@ -451,7 +459,24 @@ class MojElektroApi:
         if self.enable_daily or self.enable_total:
             daily_data = await self._get_daily_readings(today)
 
-        if fifteen_data or daily_data:
+        if self.extra_reading_tags:
+            built_in_tags = (
+                set(FIFTEEN_MINUTE_SENSORS)
+                | set(DAILY_SENSORS)
+            )
+            extra_tags = [
+                tag
+                for tag in self.extra_reading_tags
+                if tag not in built_in_tags
+            ]
+            if extra_tags:
+                extra_data = await self.get_meter_readings(
+                    extra_tags,
+                    start_date=today - timedelta(days=self.lookback_days),
+                    end_date=today,
+                )
+
+        if fifteen_data or daily_data or extra_data:
             try:
                 await self.get_reading_qualities()
             except MojElektroAuthError:
@@ -486,6 +511,11 @@ class MojElektroApi:
                     daily_data,
                     TOTAL_REGISTER_SENSORS,
                 )
+            )
+
+        if extra_data:
+            sensor_return.update(
+                self.extra_readings_output(extra_data)
             )
 
         if self.enable_tariff_blocks:
@@ -547,6 +577,13 @@ class MojElektroApi:
 
         if self.enable_souporaba:
             names.extend(SOUPORABA_SENSORS.values())
+
+        names.extend(
+            self.sensor_key_for_tag(tag)
+            for tag in self.extra_reading_tags
+            if tag not in set(FIFTEEN_MINUTE_SENSORS)
+            and tag not in set(DAILY_SENSORS)
+        )
 
         names.append(LAST_PUBLISHED_READING_SENSOR)
         return names
@@ -777,6 +814,86 @@ class MojElektroApi:
                 continue
 
             self._remember_reading_metadata(sensor, latest)
+
+        return output
+
+    @staticmethod
+    def sensor_key_for_tag(tag: str) -> str:
+        """Create a stable Home Assistant-safe key from a semantic API tag."""
+        encoded = (
+            str(tag)
+            .strip()
+            .lower()
+            .replace("+", "_plus_")
+            .replace("-", "_minus_")
+        )
+        encoded = re.sub(r"[^a-z0-9_]+", "_", encoded)
+        encoded = re.sub(r"_+", "_", encoded).strip("_")
+        return f"reading_{encoded or 'unknown'}"
+
+    def extra_readings_output(
+        self,
+        data: list[dict[str, Any]],
+    ) -> dict[str, float]:
+        """Expose user-selected reading types using live catalogue metadata."""
+        selected = set(self.extra_reading_tags)
+        output: dict[str, float] = {}
+
+        for block in data:
+            reading_type = str(block.get("readingType", ""))
+            tag = self._tag_for_reading_type(reading_type)
+            if tag is None or tag not in selected:
+                continue
+
+            readings = self._sorted_readings(block)
+            if not readings:
+                continue
+
+            latest = readings[-1]
+            sensor = self.sensor_key_for_tag(tag)
+            try:
+                output[sensor] = round(
+                    float(latest["value"]),
+                    self.decimal,
+                )
+            except (KeyError, TypeError, ValueError):
+                continue
+
+            definition = (
+                (self._reading_types_by_tag or {}).get(tag)
+                or {}
+            )
+            self.dynamic_sensor_metadata[sensor] = {
+                "tag": tag,
+                "naziv": definition.get("naziv"),
+                "opis": definition.get("opis"),
+                "perioda": definition.get("perioda"),
+                "vrsta": definition.get("vrsta"),
+                "unit": definition.get("merilnaEnota"),
+            }
+
+            reset_at = None
+            period = str(definition.get("perioda") or "").lower()
+            if "15" in period:
+                raw_timestamp = str(
+                    latest.get("timestamp") or ""
+                )
+                if raw_timestamp:
+                    try:
+                        reset_at = (
+                            datetime.fromisoformat(
+                                raw_timestamp.replace("Z", "+00:00")
+                            )
+                            - timedelta(minutes=15)
+                        ).isoformat()
+                    except ValueError:
+                        reset_at = None
+
+            self._remember_reading_metadata(
+                sensor,
+                latest,
+                last_reset=reset_at,
+            )
 
         return output
 
