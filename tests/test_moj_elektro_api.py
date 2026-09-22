@@ -577,9 +577,9 @@ def test_daily_history_fetches_previous_month_only_when_sparse():
 
 def test_dynamic_sensor_key_encodes_semantic_signs():
     """Dynamic entity keys should be readable and collision-resistant for signs."""
-    assert MojElektroApi.sensor_key_for_tag("P+") == "reading_p_plus"
-    assert MojElektroApi.sensor_key_for_tag("Q-") == "reading_q_minus"
-    assert MojElektroApi.sensor_key_for_tag("R+_T0") == "reading_r_plus_t0"
+    assert MojElektroApi.sensor_key_for_tag("P+") == "reading_p_plus_a1fd3d99"
+    assert MojElektroApi.sensor_key_for_tag("Q-") == "reading_q_minus_c64bbeb4"
+    assert MojElektroApi.sensor_key_for_tag("R+_T0") == "reading_r_plus_t0_cfcc10a8"
 
 
 def test_extra_reading_output_uses_live_catalogue_metadata():
@@ -633,8 +633,8 @@ def test_extra_reading_output_uses_live_catalogue_metadata():
         ]
     )
 
-    assert result == {"reading_p_plus": 2.75}
-    assert api.dynamic_sensor_metadata["reading_p_plus"] == {
+    assert result == {"reading_p_plus_a1fd3d99": 2.75}
+    assert api.dynamic_sensor_metadata["reading_p_plus_a1fd3d99"] == {
         "tag": "P+",
         "naziv": "Prejeta 15 minutna delovna moč",
         "opis": None,
@@ -643,7 +643,7 @@ def test_extra_reading_output_uses_live_catalogue_metadata():
         "unit": None,
     }
     assert (
-        api.last_reading_metadata["reading_p_plus"]["last_reset"]
+        api.last_reading_metadata["reading_p_plus_a1fd3d99"]["last_reset"]
         == "2026-09-21T10:00:00+02:00"
     )
 
@@ -743,7 +743,7 @@ def test_dynamic_metadata_exists_before_first_reading():
 
     api.prepare_dynamic_sensor_metadata()
 
-    assert api.dynamic_sensor_metadata["reading_p_plus"] == {
+    assert api.dynamic_sensor_metadata["reading_p_plus_a1fd3d99"] == {
         "tag": "P+",
         "naziv": "Prejeta 15 minutna delovna moč",
         "opis": "15 minutna moč, A+, kW",
@@ -751,7 +751,7 @@ def test_dynamic_metadata_exists_before_first_reading():
         "vrsta": "KOLICINA",
         "unit": None,
     }
-    assert "reading_p_plus" in api.expected_sensor_names()
+    assert "reading_p_plus_a1fd3d99" in api.expected_sensor_names()
 
 
 def test_dynamic_reading_reset_uses_catalogue_period():
@@ -788,7 +788,7 @@ def test_dynamic_reading_reset_uses_catalogue_period():
     )
 
     assert (
-        api.last_reading_metadata["reading_p_plus"]["last_reset"]
+        api.last_reading_metadata["reading_p_plus_a1fd3d99"]["last_reset"]
         == "2026-09-21T10:00:00+02:00"
     )
 
@@ -816,7 +816,7 @@ def test_dynamic_metadata_works_with_current_official_schema_fields():
 
     api.prepare_dynamic_sensor_metadata()
 
-    metadata = api.dynamic_sensor_metadata["reading_p_plus"]
+    metadata = api.dynamic_sensor_metadata["reading_p_plus_a1fd3d99"]
     assert metadata["tag"] == "P+"
     assert metadata["perioda"] == "15 min"
     assert metadata["vrsta"] == "KOLICINA"
@@ -898,7 +898,7 @@ def test_expected_entity_set_follows_enabled_options_only():
     names = api.expected_sensor_names()
 
     assert names == [
-        "reading_p_plus",
+        "reading_p_plus_a1fd3d99",
         "last_published_reading",
     ]
 
@@ -918,7 +918,7 @@ def test_builtin_tags_are_not_duplicated_as_dynamic_entities():
     assert names.count("15min_input") == 1
     assert "reading_a_plus" not in names
     assert "reading_a_plus_t0" not in names
-    assert "reading_p_plus" in names
+    assert "reading_p_plus_a1fd3d99" in names
 
 
 def test_dynamic_period_parser_supports_common_api_labels():
