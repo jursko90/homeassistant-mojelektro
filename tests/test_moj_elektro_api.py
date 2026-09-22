@@ -7,7 +7,11 @@ from custom_components.mojelektro.const import (
     FIFTEEN_MINUTE_SENSORS,
     TOTAL_REGISTER_SENSORS,
 )
-from custom_components.mojelektro.moj_elektro_api import MojElektroApi
+from custom_components.mojelektro.moj_elektro_api import (
+    MojElektroApi,
+    MojElektroConnectionError,
+    MojElektroRequestError,
+)
 
 
 class StubMojElektroApi(MojElektroApi):
@@ -641,3 +645,77 @@ def test_extra_reading_output_uses_live_catalogue_metadata():
         api.last_reading_metadata["reading_p_plus"]["last_reset"]
         == "2026-09-21T10:00:00+02:00"
     )
+
+
+class FakeHttpResponse:
+    """Minimal async HTTP response."""
+
+    def __init__(self, status, payload=None, headers=None, json_error=None):
+        self.status = status
+        self.payload = payload
+        self.headers = headers or {}
+        self.json_error = json_error
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc, tb):
+        return False
+
+    async def json(self, content_type=None):
+        if self.json_error is not None:
+            raise self.json_error
+        return self.payload
+
+
+class FakeHttpSession:
+    """Minimal aiohttp-like session."""
+
+    def __init__(self, response):
+        self.response = response
+
+    def get(self, *args, **kwargs):
+        return self.response
+
+
+def test_rate_limit_error_includes_retry_after():
+    """HTTP 429 should be recognizable and preserve Retry-After context."""
+    api = MojElektroApi(
+        "token",
+        "meter",
+        4,
+        FakeHttpSession(
+            FakeHttpResponse(
+                429,
+                headers={"Retry-After": "120"},
+            )
+        ),
+    )
+
+    try:
+        asyncio.run(api._request_json("/reading-type"))
+        assert False, "Expected MojElektroConnectionError"
+    except MojElektroConnectionError as err:
+        assert "rate limit" in str(err).lower()
+        assert "120" in str(err)
+
+
+def test_invalid_json_is_translated_to_request_error():
+    """Malformed HTTP 200 payload should not escape as an unknown exception."""
+    api = MojElektroApi(
+        "token",
+        "meter",
+        4,
+        FakeHttpSession(
+            FakeHttpResponse(
+                200,
+                json_error=ValueError("invalid json"),
+            )
+        ),
+    )
+
+    try:
+        asyncio.run(api._request_json("/reading-type"))
+        assert False, "Expected MojElektroRequestError"
+    except MojElektroRequestError as err:
+        assert "invalid JSON" in str(err)
