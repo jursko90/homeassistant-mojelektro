@@ -42,7 +42,8 @@
           "enable_contracted_power": "Vključi dogovorjene moči",
           "enable_total": "Vključi kumulativna stanja števca",
           "enable_souporaba": "Vključi povzetek souporabe",
-          "stale_after_hours": "Opozori na zastarele podatke po (urah)"
+          "stale_after_hours": "Opozori na zastarele podatke po (urah)",
+          "extra_reading_tags": "Dodatni registri"
         },
         "data_description": {
           "decimal": "Število decimalnih mest pri številskih vrednostih senzorjev.",
@@ -52,7 +53,8 @@
           "enable_contracted_power": "Prebere dogovorjeno moč blokov 1-5 iz uradnih podatkov merilne točke.",
           "enable_total": "Doda kumulativne registre porabe/oddaje, primerne za Home Assistant Energy Dashboard.",
           "enable_souporaba": "Prikaže samo število souporab po statusih; EIMM, GSRN in kontaktni podatki niso izpostavljeni kot stanja entitet.",
-          "stale_after_hours": "Če najnovejša objavljena meritev preseže ta prag, diagnostični senzor javi težavo. Dovoljeno 24–168 ur."
+          "stale_after_hours": "Če najnovejša objavljena meritev preseže ta prag, diagnostični senzor javi težavo. Dovoljeno 24–168 ur.",
+          "extra_reading_tags": "Izberi dodatne registre neposredno iz uradnega /reading-type kataloga (npr. moč ali jalova energija). Osnovni A+/A- senzorji so že vključeni v glavne skupine."
         }
       }
     }
