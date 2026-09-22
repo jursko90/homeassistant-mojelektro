@@ -887,3 +887,45 @@ def test_get_data_preserves_last_good_value_across_empty_success():
     assert first["15min_input"] == 0.42
     assert second["15min_input"] == 0.42
     assert second["15min_output"] is None
+
+
+def test_expected_entity_set_follows_enabled_options_only():
+    """Entity set should be stable and change only through explicit options."""
+    api = MojElektroApi(
+        "token",
+        "meter",
+        4,
+        None,
+        enable_15min=False,
+        enable_daily=False,
+        enable_total=False,
+        enable_tariff_blocks=False,
+        enable_contracted_power=False,
+        enable_souporaba=False,
+        extra_reading_tags=("P+",),
+    )
+
+    names = api.expected_sensor_names()
+
+    assert names == [
+        "reading_p_plus",
+        "last_published_reading",
+    ]
+
+
+def test_builtin_tags_are_not_duplicated_as_dynamic_entities():
+    """Selecting a built-in API tag must not create a second entity."""
+    api = MojElektroApi(
+        "token",
+        "meter",
+        4,
+        None,
+        extra_reading_tags=("A+", "A+_T0", "P+"),
+    )
+
+    names = api.expected_sensor_names()
+
+    assert names.count("15min_input") == 1
+    assert "reading_a_plus" not in names
+    assert "reading_a_plus_t0" not in names
+    assert "reading_p_plus" in names
