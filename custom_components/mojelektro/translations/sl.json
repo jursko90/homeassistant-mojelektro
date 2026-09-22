@@ -54,5 +54,12 @@
         }
       }
     }
+  },
+  "entity": {
+    "button": {
+      "refresh_data": {
+        "name": "Osveži podatke"
+      }
+    }
   }
 }
