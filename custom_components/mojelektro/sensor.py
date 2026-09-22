@@ -14,7 +14,13 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceEntryType
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import CONF_METER_ID, DOMAIN, LAST_PUBLISHED_READING_SENSOR, VERSION
+from .const import (
+    CONF_METER_ID,
+    DOMAIN,
+    LAST_PUBLISHED_READING_SENSOR,
+    SENSOR_TRANSLATION_KEYS,
+    VERSION,
+)
 from .moj_elektro_api import MojElektroApi
 
 _LOGGER = logging.getLogger(__name__)
@@ -64,13 +70,16 @@ class MojElektroSensor(CoordinatorEntity, SensorEntity):
         self._attr_unique_id = (
             f"{meter_id}-sensor.{DOMAIN}_{measurement_name.lower()}"
         )
-        self._attr_name = f"Moj Elektro {measurement_name.replace('_', ' ')}"
+        self._attr_has_entity_name = True
+        self._attr_translation_key = SENSOR_TRANSLATION_KEYS.get(
+            measurement_name,
+            measurement_name,
+        )
 
         if measurement_name == LAST_PUBLISHED_READING_SENSOR:
             self._attr_device_class = SensorDeviceClass.TIMESTAMP
             self._attr_entity_category = EntityCategory.DIAGNOSTIC
             self._attr_icon = "mdi:clock-check-outline"
-            self._attr_has_entity_name = True
             self._attr_translation_key = "last_published_reading"
         elif measurement_name.startswith("casovni_blok"):
             self._attr_native_unit_of_measurement = UnitOfPower.KILO_WATT
