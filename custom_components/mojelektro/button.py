@@ -2,6 +2,7 @@
 
 from homeassistant.components.button import ButtonEntity
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceEntryType
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
@@ -29,8 +30,10 @@ async def async_setup_entry(
 class MojElektroRefreshButton(CoordinatorEntity, ButtonEntity):
     """Button that requests an immediate Moj Elektro refresh."""
 
+    _attr_entity_category = EntityCategory.CONFIG
+    _attr_has_entity_name = True
     _attr_icon = "mdi:refresh"
-    _attr_name = "Moj Elektro refresh data"
+    _attr_translation_key = "refresh_data"
 
     def __init__(self, coordinator, meter_id: str) -> None:
         """Initialize the refresh button."""
