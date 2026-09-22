@@ -580,6 +580,10 @@ def test_dynamic_sensor_key_encodes_semantic_signs():
     assert MojElektroApi.sensor_key_for_tag("P+") == "reading_p_plus_a1fd3d99"
     assert MojElektroApi.sensor_key_for_tag("Q-") == "reading_q_minus_c64bbeb4"
     assert MojElektroApi.sensor_key_for_tag("R+_T0") == "reading_r_plus_t0_cfcc10a8"
+    assert (
+        MojElektroApi.sensor_key_for_tag("P+")
+        != MojElektroApi.sensor_key_for_tag("P_plus")
+    )
 
 
 def test_extra_reading_output_uses_live_catalogue_metadata():
