@@ -441,6 +441,10 @@ class MojElektroApi:
                 parsed_message_created = datetime.fromisoformat(
                     str(message_created).replace("Z", "+00:00")
                 )
+                if parsed_message_created.tzinfo is None:
+                    raise ValueError(
+                        "messageCreated timestamp has no timezone offset"
+                    )
                 if (
                     self.last_meter_message_created is None
                     or parsed_message_created > self.last_meter_message_created
