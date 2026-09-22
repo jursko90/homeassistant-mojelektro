@@ -471,38 +471,34 @@ class MojElektroApi:
         daily_data: list[dict[str, Any]] = []
         extra_data: list[dict[str, Any]] = []
 
-        requested_15_tags: set[str] = set()
+        requested_interval_tags: set[str] = set()
         if self.enable_15min:
-            requested_15_tags.update(FIFTEEN_MINUTE_SENSORS)
+            requested_interval_tags.update(FIFTEEN_MINUTE_SENSORS)
         if self.enable_tariff_blocks:
-            requested_15_tags.add("A+")
+            requested_interval_tags.add("A+")
 
-        if requested_15_tags:
+        built_in_tags = (
+            set(FIFTEEN_MINUTE_SENSORS)
+            | set(DAILY_SENSORS)
+        )
+        extra_tags = {
+            tag
+            for tag in self.extra_reading_tags
+            if tag not in built_in_tags
+        }
+        requested_interval_tags.update(extra_tags)
+
+        if requested_interval_tags:
             fifteen_data = await self.get_meter_readings(
-                requested_15_tags,
+                requested_interval_tags,
                 start_date=today - timedelta(days=self.lookback_days),
                 end_date=today,
             )
+            if extra_tags:
+                extra_data = fifteen_data
 
         if self.enable_daily or self.enable_total:
             daily_data = await self._get_daily_readings(today)
-
-        if self.extra_reading_tags:
-            built_in_tags = (
-                set(FIFTEEN_MINUTE_SENSORS)
-                | set(DAILY_SENSORS)
-            )
-            extra_tags = [
-                tag
-                for tag in self.extra_reading_tags
-                if tag not in built_in_tags
-            ]
-            if extra_tags:
-                extra_data = await self.get_meter_readings(
-                    extra_tags,
-                    start_date=today - timedelta(days=self.lookback_days),
-                    end_date=today,
-                )
 
         if self.extra_reading_tags:
             self.prepare_dynamic_sensor_metadata()
