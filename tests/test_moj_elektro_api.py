@@ -1372,3 +1372,57 @@ def test_diagnostics_only_mode_starts_without_measurement_data():
     assert result == {
         "last_published_reading": None,
     }
+
+
+class StaleCatalogueRetryStub(MojElektroApi):
+    """Simulate a cached readingType ID becoming invalid upstream."""
+
+    def __init__(self):
+        super().__init__("token", "meter", 4, None)
+        self._reading_types_by_tag = {
+            "A+": {"readingType": "old-id"},
+        }
+        self._tag_by_reading_type = {"old-id": "A+"}
+        self.force_refresh_calls = 0
+        self.meter_params = []
+
+    async def get_reading_types(self, *, force_refresh=False):
+        if force_refresh:
+            self.force_refresh_calls += 1
+            self._reading_types_by_tag = {
+                "A+": {"readingType": "new-id"},
+            }
+            self._tag_by_reading_type = {"new-id": "A+"}
+        return self._reading_types_by_tag
+
+    async def _request_json(self, path, *, params=None):
+        assert path == "/meter-readings"
+        self.meter_params.append(list(params))
+        options = [
+            value
+            for key, value in params
+            if key == "option"
+        ]
+        if options == ["ReadingType=old-id"]:
+            raise MojElektroRequestError("old register id rejected")
+        assert options == ["ReadingType=new-id"]
+        return {"intervalBlocks": []}
+
+
+def test_stale_reading_type_catalogue_refreshes_and_retries_once():
+    """Cached opaque IDs should self-heal when upstream replaces them."""
+    api = StaleCatalogueRetryStub()
+
+    result = asyncio.run(
+        api.get_meter_readings(
+            ["A+"],
+            start_date=date(2026, 9, 20),
+            end_date=date(2026, 9, 22),
+        )
+    )
+
+    assert result == []
+    assert api.force_refresh_calls == 1
+    assert len(api.meter_params) == 2
+    assert ("option", "ReadingType=old-id") in api.meter_params[0]
+    assert ("option", "ReadingType=new-id") in api.meter_params[1]
