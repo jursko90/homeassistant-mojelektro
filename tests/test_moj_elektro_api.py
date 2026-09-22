@@ -501,3 +501,70 @@ def test_monthly_delta_uses_latest_reading_month_only():
         api.last_reading_metadata["monthly_input"]["last_reset"]
         == "2026-10-01T00:00:00+02:00"
     )
+
+
+class DailyFallbackStub(MojElektroApi):
+    """Stub daily register requests for month-boundary fallback tests."""
+
+    def __init__(self, current_readings):
+        super().__init__("token", "meter", 4, None)
+        self.current_readings = current_readings
+        self.calls = []
+        self._tag_by_reading_type = {"daily-a-plus": "A+_T0"}
+
+    async def get_meter_readings(self, tags, *, start_date, end_date):
+        self.calls.append((start_date, end_date))
+        if start_date.day == 1 and start_date.month == end_date.month:
+            return [
+                {
+                    "readingType": "daily-a-plus",
+                    "intervalReadings": self.current_readings,
+                }
+            ]
+        return [
+            {
+                "readingType": "daily-a-plus",
+                "intervalReadings": [
+                    {
+                        "timestamp": "2026-09-30T00:00:00+02:00",
+                        "value": "100.0",
+                    }
+                ],
+            }
+        ]
+
+
+def test_daily_history_fetches_previous_month_only_when_sparse():
+    """Previous-month request should be conditional, not done on every poll."""
+    sparse = DailyFallbackStub(
+        [
+            {
+                "timestamp": "2026-10-01T00:00:00+02:00",
+                "value": "110.0",
+            }
+        ]
+    )
+    enough = DailyFallbackStub(
+        [
+            {
+                "timestamp": "2026-10-01T00:00:00+02:00",
+                "value": "110.0",
+            },
+            {
+                "timestamp": "2026-10-02T00:00:00+02:00",
+                "value": "115.0",
+            },
+        ]
+    )
+
+    sparse_result = asyncio.run(
+        sparse._get_daily_readings(date(2026, 10, 2))
+    )
+    enough_result = asyncio.run(
+        enough._get_daily_readings(date(2026, 10, 2))
+    )
+
+    assert len(sparse.calls) == 2
+    assert len(sparse_result[0]["intervalReadings"]) == 2
+    assert len(enough.calls) == 1
+    assert len(enough_result[0]["intervalReadings"]) == 2
