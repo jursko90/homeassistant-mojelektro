@@ -46,7 +46,7 @@
         },
         "data_description": {
           "decimal": "Number of decimal places used for numeric sensor values.",
-          "update_interval_minutes": "How often Home Assistant queries Moj Elektro. The upstream data is delayed, so very short intervals are usually unnecessary.",
+          "update_interval_minutes": "How often Home Assistant checks Moj Elektro. Allowed range: 5–1440 minutes; default: 60. Use the Refresh data button for an immediate check.",
           "lookback_days": "How many days are queried when looking for the newest published 15-minute reading.",
           "enable_tariff_blocks": "These sensors are calculated locally from the Slovenian network tariff schedule.",
           "enable_contracted_power": "Reads blocks 1-5 from the official metering-point metadata.",
