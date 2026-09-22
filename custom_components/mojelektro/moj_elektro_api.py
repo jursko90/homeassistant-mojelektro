@@ -223,7 +223,26 @@ class MojElektroApi:
             if not tag or self._preferred_reading_type(item) is None:
                 continue
 
-            by_tag[str(tag)] = item
+            tag_key = str(tag)
+            existing = by_tag.get(tag_key)
+            if existing is None:
+                by_tag[tag_key] = dict(item)
+            else:
+                merged = dict(existing)
+                for key, value in item.items():
+                    if value in (None, ""):
+                        continue
+                    if key not in merged or merged[key] in (None, ""):
+                        merged[key] = value
+                    elif merged[key] != value:
+                        _LOGGER.debug(
+                            "Duplicate reading-type catalogue value for "
+                            "%s/%s; keeping first value",
+                            tag_key,
+                            key,
+                        )
+                by_tag[tag_key] = merged
+
             for key in (
                 "readingType",
                 "readingTypeBrezObracuna",
