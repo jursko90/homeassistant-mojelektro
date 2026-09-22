@@ -71,8 +71,10 @@ class MojeElektroFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
 
         try:
             await api.validate_token()
-        except (MojElektroAuthError, MojElektroRequestError):
+        except MojElektroAuthError:
             return "invalid_auth"
+        except MojElektroRequestError:
+            return "invalid_meter"
         except MojElektroError as err:
             _LOGGER.debug("Moj Elektro connection validation failed: %s", err)
             return "cannot_connect"
@@ -109,8 +111,16 @@ class MojeElektroFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             step_id="user",
             data_schema=vol.Schema(
                 {
-                    vol.Required(CONF_TOKEN): str,
-                    vol.Required(CONF_METER_ID): str,
+                    vol.Required(CONF_TOKEN): vol.All(
+                        str,
+                        lambda value: value.strip(),
+                        vol.Length(min=1),
+                    ),
+                    vol.Required(CONF_METER_ID): vol.All(
+                        str,
+                        lambda value: value.strip(),
+                        vol.Length(min=1),
+                    ),
                 }
             ),
             errors=errors,
@@ -142,7 +152,15 @@ class MojeElektroFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
 
         return self.async_show_form(
             step_id="reauth_confirm",
-            data_schema=vol.Schema({vol.Required(CONF_TOKEN): str}),
+            data_schema=vol.Schema(
+                {
+                    vol.Required(CONF_TOKEN): vol.All(
+                        str,
+                        lambda value: value.strip(),
+                        vol.Length(min=1),
+                    )
+                }
+            ),
             errors=errors,
             description_placeholders={"meter_id": meter_id},
         )
