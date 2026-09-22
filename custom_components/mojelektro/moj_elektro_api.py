@@ -1107,7 +1107,10 @@ class MojElektroApi:
         if not data:
             return {}
 
-        readings_by_date: dict[date, list[tuple[datetime, dict[str, Any]]]] = {}
+        readings_by_date: dict[
+            date,
+            dict[str, tuple[datetime, dict[str, Any]]],
+        ] = {}
 
         for block in data:
             reading_type = str(block.get("readingType", ""))
@@ -1125,10 +1128,21 @@ class MojElektroApi:
                 except (KeyError, TypeError, ValueError):
                     continue
 
-                readings_by_date.setdefault(
+                if (
+                    interval_start.second != 0
+                    or interval_start.microsecond != 0
+                    or interval_start.minute not in (0, 15, 30, 45)
+                ):
+                    continue
+
+                day_readings = readings_by_date.setdefault(
                     interval_start.date(),
-                    [],
-                ).append((interval_start, reading))
+                    {},
+                )
+                day_readings[interval_start.isoformat()] = (
+                    interval_start,
+                    reading,
+                )
 
         complete_dates = [
             reading_date
@@ -1142,7 +1156,9 @@ class MojElektroApi:
             return {}
 
         selected_date = max(complete_dates)
-        selected_readings = readings_by_date[selected_date]
+        selected_readings = list(
+            readings_by_date[selected_date].values()
+        )
         blocks_sums = {1: 0.0, 2: 0.0, 3: 0.0, 4: 0.0, 5: 0.0}
 
         for _interval_start, reading in selected_readings:
