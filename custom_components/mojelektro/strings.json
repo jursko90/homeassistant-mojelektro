@@ -60,6 +60,11 @@
       "refresh_data": {
         "name": "Refresh data"
       }
+    },
+    "sensor": {
+      "last_published_reading": {
+        "name": "Last published reading"
+      }
     }
   }
 }
