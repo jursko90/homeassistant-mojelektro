@@ -46,3 +46,32 @@ jobs:
             --select=E9,F63,F7,F82 \
             --show-source \
             --statistics
+
+      - name: Build Home Assistant beta ZIP
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import shutil
+
+          source = Path("custom_components/mojelektro")
+          staging = Path("dist/mojelektro")
+          shutil.rmtree("dist", ignore_errors=True)
+          shutil.copytree(source, staging)
+          shutil.make_archive(
+              "dist/mojelektro-0.3.0-beta",
+              "zip",
+              root_dir="dist",
+              base_dir="mojelektro",
+          )
+          PY
+
+      - name: Upload beta ZIP
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v7
+        with:
+          name: mojelektro-0.3.0-beta-${{ github.sha }}
+          path: dist/mojelektro-0.3.0-beta.zip
+          retention-days: 7
+          if-no-files-found: error
+
