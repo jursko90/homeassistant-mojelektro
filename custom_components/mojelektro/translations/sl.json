@@ -60,6 +60,11 @@
       "refresh_data": {
         "name": "Osveži podatke"
       }
+    },
+    "sensor": {
+      "last_published_reading": {
+        "name": "Zadnja objavljena meritev"
+      }
     }
   }
 }
