@@ -61,6 +61,18 @@ async def async_get_config_entry_diagnostics(
                 "dynamic_sensor_metadata": dict(
                     api.dynamic_sensor_metadata
                 ),
+                "meter_api_timestamps": {
+                    "last_response_at": (
+                        api.last_meter_response_at.isoformat()
+                        if api.last_meter_response_at is not None
+                        else None
+                    ),
+                    "last_message_created": (
+                        api.last_meter_message_created.isoformat()
+                        if api.last_meter_message_created is not None
+                        else None
+                    ),
+                },
             }
         )
 
