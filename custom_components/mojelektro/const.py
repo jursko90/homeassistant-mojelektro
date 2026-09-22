@@ -4,6 +4,7 @@ DOMAIN = "mojelektro"
 VERSION = "0.3.0"
 
 API_BASE_URL = "https://api.informatika.si/mojelektro/v1"
+REQUEST_TIMEOUT_SECONDS = 30
 
 CONF_TOKEN = "token"
 CONF_METER_ID = "meter_id"
