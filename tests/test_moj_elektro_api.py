@@ -1415,3 +1415,56 @@ def test_stale_reading_type_catalogue_refreshes_and_retries_once():
     assert len(api.meter_params) == 2
     assert ("option", "ReadingType=old-id") in api.meter_params[0]
     assert ("option", "ReadingType=new-id") in api.meter_params[1]
+
+
+def test_reading_sort_uses_absolute_time_across_dst_fallback():
+    """Repeated local hour must be ordered by timezone-aware instant."""
+    api = MojElektroApi("token", "meter", 4, None)
+    api._tag_by_reading_type = {"a-plus": "A+"}
+
+    result = api.sensors_output(
+        [
+            {
+                "readingType": "a-plus",
+                "intervalReadings": [
+                    {
+                        # 00:30 UTC
+                        "timestamp": "2026-10-25T02:30:00+02:00",
+                        "value": "1.0",
+                    },
+                    {
+                        # 01:15 UTC: later even though local clock says 02:15
+                        "timestamp": "2026-10-25T02:15:00+01:00",
+                        "value": "2.0",
+                    },
+                ],
+            }
+        ],
+        FIFTEEN_MINUTE_SENSORS,
+        interval=True,
+    )
+
+    assert result["15min_input"] == 2.0
+
+
+def test_naive_or_invalid_timestamps_are_ignored():
+    """OpenAPI requires offsets; ambiguous/invalid timestamps must not be used."""
+    readings = MojElektroApi._sorted_readings(
+        {
+            "intervalReadings": [
+                {"timestamp": "2026-09-21T10:15:00", "value": "1"},
+                {"timestamp": "not-a-date", "value": "2"},
+                {
+                    "timestamp": "2026-09-21T10:30:00+02:00",
+                    "value": "3",
+                },
+            ]
+        }
+    )
+
+    assert readings == [
+        {
+            "timestamp": "2026-09-21T10:30:00+02:00",
+            "value": "3",
+        }
+    ]
