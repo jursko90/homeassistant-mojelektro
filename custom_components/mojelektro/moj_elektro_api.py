@@ -1234,10 +1234,7 @@ class MojElektroApi:
     async def get_casovni_blok(self) -> dict[str, float | None]:
         """Get currently valid contracted powers for tariff blocks."""
         current_date = dt_util.now().date()
-        if (
-            self._contracted_power_cache_date == current_date
-            and self._contracted_power_cache
-        ):
+        if self._contracted_power_cache_date == current_date:
             return dict(self._contracted_power_cache)
 
         try:
@@ -1246,15 +1243,16 @@ class MojElektroApi:
                 meter_site.get("merilneTocke", [])
             )
             if not gsrn_omto:
+                self._contracted_power_cache = {}
+                self._contracted_power_cache_date = current_date
                 return {}
 
             meter_point = await self.get_meter_point(gsrn_omto)
             result = self._extract_casovni_bloki(
                 meter_point.get("dogovorjeneMoci", [])
             )
-            if result:
-                self._contracted_power_cache = dict(result)
-                self._contracted_power_cache_date = current_date
+            self._contracted_power_cache = dict(result)
+            self._contracted_power_cache_date = current_date
             return result
         except MojElektroAuthError:
             raise
