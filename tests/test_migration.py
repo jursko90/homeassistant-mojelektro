@@ -49,7 +49,6 @@ def test_v1_migration_moves_decimal_to_options():
     assert entry.data == {
         CONF_TOKEN: "secret-token",
         CONF_METER_ID: "meter-id",
-        CONF_DECIMAL: 3,
     }
     assert entry.options[CONF_DECIMAL] == 3
 
@@ -62,7 +61,7 @@ def test_v1_migration_preserves_existing_option():
     assert asyncio.run(async_migrate_entry(FakeHass(), entry))
 
     assert entry.version == 2
-    assert entry.data[CONF_DECIMAL] == 3
+    assert CONF_DECIMAL not in entry.data
     assert entry.options[CONF_DECIMAL] == 6
 
 
