@@ -400,7 +400,7 @@ class MojElektroApi:
         ]
 
         missing_tags: list[str] = []
-        for tag in tags:
+        for tag in sorted(tags):
             definition = reading_types.get(tag)
             reading_type = self._preferred_reading_type(definition)
             if not reading_type:
