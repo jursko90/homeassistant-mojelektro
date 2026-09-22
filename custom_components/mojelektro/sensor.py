@@ -204,6 +204,14 @@ class MojElektroSensor(CoordinatorEntity, SensorEntity):
         return attributes or None
 
     @property
+    def available(self) -> bool:
+        """Return whether this specific sensor has usable data."""
+        return (
+            super().available
+            and self.coordinator.data.get(self.measurement_name) is not None
+        )
+
+    @property
     def native_value(self):
         """Return the native sensor value."""
         data = self.coordinator.data.get(self.measurement_name)
