@@ -15,10 +15,13 @@ PRODUCTION_API_URL = "https://api.informatika.si/mojelektro/v1"
 
 REQUIRED_PATHS = {
     "/meter-readings": "get",
+    "/reading-type": "get",
+}
+
+OPTIONAL_PATHS = {
     "/merilno-mesto/{identifikator}": "get",
     "/merilna-tocka/{gsrn}": "get",
     "/reading-qualities": "get",
-    "/reading-type": "get",
     "/souporaba": "get",
     "/souporaba/{sifra}": "get",
     "/souporaba/pregled-obracunov-omreznine": "get",
@@ -49,6 +52,9 @@ REQUIRED_SCHEMA_PROPERTIES = {
         "messageCreated",
         "intervalBlocks",
     },
+}
+ 
+OPTIONAL_SCHEMA_PROPERTIES = {
     "PogodbeniPodatki": {
         "steviloFaz",
         "vrstaOmejevalcaToka",
@@ -117,11 +123,48 @@ def validate_spec(spec: dict) -> list[str]:
     return problems
 
 
+def optional_contract_warnings(spec: dict) -> list[str]:
+    """Return non-fatal drift warnings for optional integration features."""
+    warnings: list[str] = []
+    paths = spec.get("paths") or {}
+
+    for path, method in OPTIONAL_PATHS.items():
+        operation = paths.get(path)
+        if not isinstance(operation, dict) or method not in operation:
+            warnings.append(
+                f"Optional operation missing: {method.upper()} {path}"
+            )
+
+    schemas = (
+        (spec.get("components") or {}).get("schemas")
+        or {}
+    )
+    for schema_name, expected_properties in OPTIONAL_SCHEMA_PROPERTIES.items():
+        schema = schemas.get(schema_name)
+        if not isinstance(schema, dict):
+            warnings.append(f"Optional schema missing: {schema_name}")
+            continue
+
+        properties = schema.get("properties") or {}
+        missing = sorted(expected_properties - set(properties))
+        if missing:
+            warnings.append(
+                f"{schema_name} missing optional properties: "
+                f"{', '.join(missing)}"
+            )
+
+    return warnings
+
+
 def load_spec(url: str) -> dict:
     """Download and parse the OpenAPI YAML."""
     request = urllib.request.Request(
         url,
-        headers={"User-Agent": "homeassistant-mojelektro-schema-check"},
+        headers={
+            "User-Agent": "homeassistant-mojelektro-schema-check",
+            "Cache-Control": "no-cache",
+            "Pragma": "no-cache",
+        },
     )
     with urllib.request.urlopen(request, timeout=30) as response:
         payload = response.read()
@@ -144,14 +187,31 @@ def main() -> int:
         print(f"Unable to load Moj Elektro OpenAPI: {err}", file=sys.stderr)
         return 2
 
+    warnings = optional_contract_warnings(spec)
+    for warning in warnings:
+        print(f"WARNING: {warning}", file=sys.stderr)
+
     problems = validate_spec(spec)
     if problems:
-        print("Moj Elektro API contract drift detected:", file=sys.stderr)
+        print("Moj Elektro critical API contract drift detected:", file=sys.stderr)
         for problem in problems:
             print(f"- {problem}", file=sys.stderr)
+
+        observed = sorted(
+            path
+            for path in (spec.get("paths") or {})
+            if path.startswith("/souporaba")
+        )
+        if observed:
+            print(
+                "Observed souporaba paths: " + ", ".join(observed),
+                file=sys.stderr,
+            )
         return 1
 
-    print("Moj Elektro OpenAPI contract matches integration expectations.")
+    print(
+        "Moj Elektro critical OpenAPI contract matches integration expectations."
+    )
     return 0
 
 
