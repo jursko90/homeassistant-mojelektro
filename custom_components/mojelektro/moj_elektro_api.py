@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import aiohttp
 import asyncio
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 import logging
 import math
 import re
@@ -765,14 +765,35 @@ class MojElektroApi:
 
     @staticmethod
     def _sorted_readings(block: dict[str, Any]) -> list[dict[str, Any]]:
-        """Return timestamped readings in chronological order."""
+        """Return valid offset-aware readings in true chronological order."""
         readings = block.get("intervalReadings") or []
         if not isinstance(readings, list):
             return []
-        return sorted(
-            (item for item in readings if isinstance(item, dict)),
-            key=lambda item: str(item.get("timestamp", "")),
-        )
+
+        parsed: list[tuple[datetime, dict[str, Any]]] = []
+        for item in readings:
+            if not isinstance(item, dict):
+                continue
+            raw_timestamp = item.get("timestamp")
+            if not raw_timestamp:
+                continue
+            try:
+                timestamp = datetime.fromisoformat(
+                    str(raw_timestamp).replace("Z", "+00:00")
+                )
+            except ValueError:
+                continue
+            if timestamp.tzinfo is None:
+                continue
+            parsed.append(
+                (
+                    timestamp.astimezone(timezone.utc),
+                    item,
+                )
+            )
+
+        parsed.sort(key=lambda pair: pair[0])
+        return [item for _timestamp, item in parsed]
 
     def _quality_details(self, *readings: dict[str, Any]) -> list[dict[str, str]]:
         """Return de-duplicated reading-quality codes and descriptions."""
