@@ -54,35 +54,45 @@ from .moj_elektro_api import (
 _LOGGER = logging.getLogger(__name__)
 
 
+async def async_validate_connection(
+    hass,
+    token: str,
+    meter_id: str,
+) -> str | None:
+    """Validate credentials and return a config-flow error key."""
+    session = async_get_clientsession(hass)
+    api = MojElektroApi(
+        token,
+        meter_id,
+        DEFAULT_DECIMAL,
+        session,
+    )
+
+    try:
+        await api.validate_token()
+    except MojElektroAuthError:
+        return "invalid_auth"
+    except MojElektroRequestError:
+        return "invalid_meter"
+    except MojElektroError as err:
+        _LOGGER.debug(
+            "Moj Elektro connection validation failed: %s",
+            err,
+        )
+        return "cannot_connect"
+    except Exception:
+        _LOGGER.exception(
+            "Unexpected error while validating Moj Elektro"
+        )
+        return "unknown"
+
+    return None
+
+
 class MojeElektroFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle the Moj Elektro config flow."""
 
     VERSION = 2
-
-    async def _async_validate(self, token: str, meter_id: str) -> str | None:
-        """Validate credentials and return an error key on failure."""
-        session = async_get_clientsession(self.hass)
-        api = MojElektroApi(
-            token,
-            meter_id,
-            DEFAULT_DECIMAL,
-            session,
-        )
-
-        try:
-            await api.validate_token()
-        except MojElektroAuthError:
-            return "invalid_auth"
-        except MojElektroRequestError:
-            return "invalid_meter"
-        except MojElektroError as err:
-            _LOGGER.debug("Moj Elektro connection validation failed: %s", err)
-            return "cannot_connect"
-        except Exception:
-            _LOGGER.exception("Unexpected error while validating Moj Elektro")
-            return "unknown"
-
-        return None
 
     async def async_step_user(self, user_input=None):
         """Handle initial setup."""
@@ -92,7 +102,7 @@ class MojeElektroFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             token = user_input[CONF_TOKEN].strip()
             meter_id = user_input[CONF_METER_ID].strip()
 
-            error = await self._async_validate(token, meter_id)
+            error = await async_validate_connection(self.hass, token, meter_id)
             if error is not None:
                 errors["base"] = error
             else:
@@ -138,7 +148,7 @@ class MojeElektroFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
 
         if user_input is not None:
             token = user_input[CONF_TOKEN].strip()
-            error = await self._async_validate(token, meter_id)
+            error = await async_validate_connection(self.hass, token, meter_id)
 
             if error is not None:
                 errors["base"] = error
