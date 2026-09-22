@@ -1336,3 +1336,39 @@ def test_request_error_does_not_expose_identifier():
         rendered = str(err)
         assert "SECRET-EIMM" not in rendered
         assert "/merilno-mesto/{identifikator}" in rendered
+
+
+class NoDataNoFeaturesStub(MojElektroApi):
+    """Ensure diagnostics-only mode makes no meter-reading request."""
+
+    def __init__(self):
+        super().__init__(
+            "token",
+            "meter",
+            4,
+            None,
+            enable_15min=False,
+            enable_daily=False,
+            enable_total=False,
+            enable_tariff_blocks=False,
+            enable_contracted_power=False,
+            enable_souporaba=False,
+            extra_reading_tags=(),
+        )
+        self.meter_calls = 0
+
+    async def get_meter_readings(self, tags, *, start_date, end_date):
+        self.meter_calls += 1
+        raise AssertionError("meter-readings should not be called")
+
+
+def test_diagnostics_only_mode_starts_without_measurement_data():
+    """All data groups may be disabled without breaking integration setup."""
+    api = NoDataNoFeaturesStub()
+
+    result = asyncio.run(api.getData())
+
+    assert api.meter_calls == 0
+    assert result == {
+        "last_published_reading": None,
+    }
