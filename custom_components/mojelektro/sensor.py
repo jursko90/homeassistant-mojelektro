@@ -221,7 +221,14 @@ class MojElektroSensor(CoordinatorEntity, SensorEntity):
 
         if data is not None:
             try:
-                self._last_known_state = float(data)
+                if (
+                    self.measurement_name.startswith("souporaba_")
+                    and isinstance(data, int)
+                    and not isinstance(data, bool)
+                ):
+                    self._last_known_state = data
+                else:
+                    self._last_known_state = float(data)
                 return self._last_known_state
             except (TypeError, ValueError):
                 _LOGGER.debug(
