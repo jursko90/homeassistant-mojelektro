@@ -85,6 +85,14 @@ class MojElektroDataStaleBinarySensor(CoordinatorEntity, BinarySensorEntity):
         }
 
     @property
+    def available(self) -> bool:
+        """Return whether freshness can be evaluated."""
+        return (
+            super().available
+            and self.api.latest_source_timestamp() is not None
+        )
+
+    @property
     def is_on(self):
         """Return True when the newest published reading exceeds the threshold."""
         latest = self.api.latest_source_timestamp()
