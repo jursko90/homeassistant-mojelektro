@@ -95,6 +95,8 @@ class MojElektroApi:
         self.dynamic_sensor_metadata: dict[str, dict[str, Any]] = {}
         self._contracted_power_cache_date: date | None = None
         self._contracted_power_cache: dict[str, float | None] = {}
+        self.last_meter_response_at: datetime | None = None
+        self.last_meter_message_created: datetime | None = None
 
     @property
     def headers(self) -> dict[str, str]:
@@ -359,6 +361,25 @@ class MojElektroApi:
             raise MojElektroRequestError(
                 "Moj Elektro returned an invalid meter-readings payload"
             )
+
+        self.last_meter_response_at = dt_util.now()
+
+        message_created = payload.get("messageCreated")
+        if message_created:
+            try:
+                parsed_message_created = datetime.fromisoformat(
+                    str(message_created).replace("Z", "+00:00")
+                )
+                if (
+                    self.last_meter_message_created is None
+                    or parsed_message_created > self.last_meter_message_created
+                ):
+                    self.last_meter_message_created = parsed_message_created
+            except ValueError:
+                _LOGGER.debug(
+                    "Invalid Moj Elektro messageCreated timestamp: %r",
+                    message_created,
+                )
 
         interval_blocks = payload.get("intervalBlocks", [])
         if not isinstance(interval_blocks, list):
