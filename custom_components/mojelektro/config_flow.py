@@ -106,6 +106,12 @@ class MojeElektroFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             if error is not None:
                 errors["base"] = error
             else:
+                if any(
+                    entry.data.get(CONF_METER_ID) == meter_id
+                    for entry in self._async_current_entries()
+                ):
+                    return self.async_abort(reason="already_configured")
+
                 await self.async_set_unique_id(meter_id)
                 self._abort_if_unique_id_configured()
 
