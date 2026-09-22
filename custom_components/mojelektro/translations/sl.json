@@ -1,0 +1,182 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Povezava z Moj Elektro API",
+        "description": "Vnesi Moj Elektro API žeton in EIMM. Nastavitve delovanja lahko pozneje spremeniš z možnostjo Konfiguriraj.",
+        "data": {
+          "token": "Žeton",
+          "meter_id": "Merilno mesto (EIMM)"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Ponovna povezava z Moj Elektro",
+        "description": "API žeton za merilno mesto {meter_id} ni več veljaven. Vnesi nov žeton.",
+        "data": {
+          "token": "Žeton"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Povezava s storitvijo ni uspela.",
+      "invalid_auth": "API žeton ni veljaven ali nima dovoljenja za dostop.",
+      "unknown": "Prišlo je do neznane napake.",
+      "invalid_meter": "EIMM ni veljaven, ne obstaja ali ni dostopen s tem žetonom."
+    },
+    "abort": {
+      "already_configured": "To merilno mesto je že konfigurirano.",
+      "reauth_successful": "Ponovna prijava je uspela."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Nastavitve Moj Elektro",
+        "description": "Izberi pogostost osveževanja in skupine senzorjev, ki jih želiš uporabljati.",
+        "data": {
+          "decimal": "Število decimalk",
+          "update_interval_minutes": "Interval osveževanja (minute)",
+          "lookback_days": "Obdobje iskanja 15-min podatkov (dni)",
+          "enable_15min": "Vključi zadnje 15-min meritve",
+          "enable_daily": "Vključi dnevne in mesečne meritve",
+          "enable_tariff_blocks": "Vključi izračun porabe po časovnih blokih",
+          "enable_contracted_power": "Vključi dogovorjene moči",
+          "enable_total": "Vključi kumulativna stanja števca",
+          "enable_souporaba": "Vključi povzetek souporabe",
+          "stale_after_hours": "Opozori na zastarele podatke po (urah)",
+          "extra_reading_tags": "Dodatni registri"
+        },
+        "data_description": {
+          "decimal": "Število decimalnih mest pri številskih vrednostih senzorjev.",
+          "update_interval_minutes": "Kako pogosto Home Assistant preveri Moj Elektro. Dovoljeno 5–1440 min; privzeto 60 min. Za takojšnje preverjanje uporabi gumb Osveži podatke.",
+          "lookback_days": "Koliko dni naj integracija pregleda pri iskanju zadnje objavljene 15-min meritve.",
+          "enable_tariff_blocks": "Ti senzorji se lokalno izračunajo po slovenskem urniku časovnih blokov.",
+          "enable_contracted_power": "Prebere dogovorjeno moč blokov 1-5 iz uradnih podatkov merilne točke.",
+          "enable_total": "Doda kumulativne registre porabe/oddaje, primerne za Home Assistant Energy Dashboard.",
+          "enable_souporaba": "Prikaže samo število souporab po statusih; EIMM, GSRN in kontaktni podatki niso izpostavljeni kot stanja entitet.",
+          "stale_after_hours": "Če najnovejša objavljena meritev preseže ta prag, diagnostični senzor javi težavo. Dovoljeno 24–168 ur.",
+          "extra_reading_tags": "Izberi dodatne registre neposredno iz uradnega /reading-type kataloga (npr. moč ali jalova energija). Osnovni A+/A- senzorji so že vključeni v glavne skupine."
+        }
+      }
+    }
+  },
+  "entity": {
+    "button": {
+      "refresh_data": {
+        "name": "Osveži podatke"
+      }
+    },
+    "sensor": {
+      "last_published_reading": {
+        "name": "Zadnja objavljena meritev"
+      },
+      "interval_input": {
+        "name": "15-minutni prevzem"
+      },
+      "interval_output": {
+        "name": "15-minutna oddaja"
+      },
+      "daily_input": {
+        "name": "Dnevni prevzem"
+      },
+      "daily_input_peak": {
+        "name": "Dnevni prevzem (VT)"
+      },
+      "daily_input_offpeak": {
+        "name": "Dnevni prevzem (MT)"
+      },
+      "daily_output": {
+        "name": "Dnevna oddaja"
+      },
+      "daily_output_peak": {
+        "name": "Dnevna oddaja (VT)"
+      },
+      "daily_output_offpeak": {
+        "name": "Dnevna oddaja (MT)"
+      },
+      "monthly_input": {
+        "name": "Mesečni prevzem"
+      },
+      "monthly_input_peak": {
+        "name": "Mesečni prevzem (VT)"
+      },
+      "monthly_input_offpeak": {
+        "name": "Mesečni prevzem (MT)"
+      },
+      "monthly_output": {
+        "name": "Mesečna oddaja"
+      },
+      "monthly_output_peak": {
+        "name": "Mesečna oddaja (VT)"
+      },
+      "monthly_output_offpeak": {
+        "name": "Mesečna oddaja (MT)"
+      },
+      "total_input": {
+        "name": "Skupno stanje prevzema"
+      },
+      "total_input_peak": {
+        "name": "Skupno stanje prevzema (VT)"
+      },
+      "total_input_offpeak": {
+        "name": "Skupno stanje prevzema (MT)"
+      },
+      "total_output": {
+        "name": "Skupno stanje oddaje"
+      },
+      "total_output_peak": {
+        "name": "Skupno stanje oddaje (VT)"
+      },
+      "total_output_offpeak": {
+        "name": "Skupno stanje oddaje (MT)"
+      },
+      "daily_input_blok_1": {
+        "name": "Dnevni prevzem – blok 1"
+      },
+      "daily_input_blok_2": {
+        "name": "Dnevni prevzem – blok 2"
+      },
+      "daily_input_blok_3": {
+        "name": "Dnevni prevzem – blok 3"
+      },
+      "daily_input_blok_4": {
+        "name": "Dnevni prevzem – blok 4"
+      },
+      "daily_input_blok_5": {
+        "name": "Dnevni prevzem – blok 5"
+      },
+      "casovni_blok_1": {
+        "name": "Dogovorjena moč – blok 1"
+      },
+      "casovni_blok_2": {
+        "name": "Dogovorjena moč – blok 2"
+      },
+      "casovni_blok_3": {
+        "name": "Dogovorjena moč – blok 3"
+      },
+      "casovni_blok_4": {
+        "name": "Dogovorjena moč – blok 4"
+      },
+      "casovni_blok_5": {
+        "name": "Dogovorjena moč – blok 5"
+      },
+      "souporaba_total": {
+        "name": "Zahteve za souporabo"
+      },
+      "souporaba_confirmed": {
+        "name": "Potrjene souporabe"
+      },
+      "souporaba_in_progress": {
+        "name": "Souporabe v izvajanju"
+      },
+      "souporaba_rejected": {
+        "name": "Zavrnjene souporabe"
+      }
+    },
+    "binary_sensor": {
+      "data_stale": {
+        "name": "Podatki so zastareli"
+      }
+    }
+  }
+}

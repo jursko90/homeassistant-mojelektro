@@ -1,51 +1,96 @@
 """Moj Elektro integration."""
 
-import json
+from dataclasses import dataclass
+from datetime import timedelta
+import logging
 import re
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .const import (
+    CONF_DECIMAL,
+    CONF_ENABLE_15MIN,
+    CONF_ENABLE_CONTRACTED_POWER,
+    CONF_ENABLE_DAILY,
+    CONF_ENABLE_SOUPORABA,
+    CONF_ENABLE_TARIFF_BLOCKS,
+    CONF_ENABLE_TOTAL,
+    CONF_EXTRA_READING_TAGS,
+    CONF_LOOKBACK_DAYS,
     CONF_METER_ID,
+    CONF_TOKEN,
+    CONF_UPDATE_INTERVAL,
+    CONTRACTED_POWER_SENSORS,
+    DAILY_SENSORS,
+    DEFAULT_DECIMAL,
+    DEFAULT_ENABLE_15MIN,
+    DEFAULT_ENABLE_CONTRACTED_POWER,
+    DEFAULT_ENABLE_DAILY,
+    DEFAULT_ENABLE_SOUPORABA,
+    DEFAULT_ENABLE_TARIFF_BLOCKS,
+    DEFAULT_ENABLE_TOTAL,
+    DEFAULT_EXTRA_READING_TAGS,
+    DEFAULT_LOOKBACK_DAYS,
+    DEFAULT_UPDATE_INTERVAL,
     DOMAIN,
-    SETUP_TAG_15_ARRAY,
-    SETUP_TAG_ARRAY,
-    SETUP_TAG_BLOCKS_ARRAY,
+    FIFTEEN_MINUTE_SENSORS,
+    SOUPORABA_SENSORS,
+    TARIFF_BLOCK_SENSORS,
+    TOTAL_REGISTER_SENSORS,
+)
+from .moj_elektro_api import (
+    MojElektroApi,
+    MojElektroAuthError,
+    MojElektroError,
 )
 
+_LOGGER = logging.getLogger(__name__)
+
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
-PLATFORMS = [Platform.SENSOR]
+PLATFORMS = [Platform.SENSOR, Platform.BUTTON, Platform.BINARY_SENSOR]
+
+
+@dataclass
+class MojElektroRuntimeData:
+    """Runtime objects shared by Moj Elektro platforms."""
+
+    api: MojElektroApi
+    coordinator: DataUpdateCoordinator
 
 
 def _expected_sensor_names() -> list[str]:
-    """Return all sensor keys created by this integration."""
-    names: list[str] = []
+    """Return all sensor keys ever created by this integration."""
+    names = list(FIFTEEN_MINUTE_SENSORS.values())
 
-    for item in json.loads(SETUP_TAG_15_ARRAY):
-        names.append(item["sensor"])
+    for sensor in DAILY_SENSORS.values():
+        names.append(sensor)
+        names.append(sensor.replace("daily_", "monthly_", 1))
 
-    for item in json.loads(SETUP_TAG_ARRAY):
-        names.append(item["sensor"])
-        names.append(item["sensor"].replace("daily_", "monthly_", 1))
-
-    for item in json.loads(SETUP_TAG_BLOCKS_ARRAY):
-        names.append(item["sensor"])
-
-    names.extend(f"casovni_blok_{block_number}" for block_number in range(1, 6))
+    names.extend(TARIFF_BLOCK_SENSORS.values())
+    names.extend(TOTAL_REGISTER_SENSORS.values())
+    names.extend(CONTRACTED_POWER_SENSORS)
+    names.extend(SOUPORABA_SENSORS.values())
     return names
 
 
 def _migrate_legacy_sensor_unique_ids(
-    hass: HomeAssistant, entry: ConfigEntry
+    hass: HomeAssistant,
+    entry: ConfigEntry,
 ) -> None:
     """Migrate legacy suffixed unique IDs without changing entity IDs."""
     meter_id = entry.data[CONF_METER_ID]
     registry = er.async_get(hass)
-    registry_entries = er.async_entries_for_config_entry(registry, entry.entry_id)
+    registry_entries = er.async_entries_for_config_entry(
+        registry,
+        entry.entry_id,
+    )
 
     for measurement_name in _expected_sensor_names():
         desired_unique_id = (
@@ -81,6 +126,35 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     return True
 
 
+async def async_migrate_entry(
+    hass: HomeAssistant,
+    entry: ConfigEntry,
+) -> bool:
+    """Migrate legacy config-entry data to the 0.3.0 schema."""
+    if entry.version > 2:
+        return False
+
+    if entry.version < 2:
+        data = dict(entry.data)
+        options = dict(entry.options)
+
+        legacy_decimal = data.get(CONF_DECIMAL)
+        if legacy_decimal is not None and CONF_DECIMAL not in options:
+            options[CONF_DECIMAL] = legacy_decimal
+
+        # Preserve the legacy data shape during migration. A full downgrade
+        # still requires restoring a pre-upgrade backup because 0.2.x cannot
+        # load a schema-v2 config entry.
+        hass.config_entries.async_update_entry(
+            entry,
+            data=data,
+            options=options,
+            version=2,
+        )
+
+    return True
+
+
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Moj Elektro from a config entry."""
     if entry.unique_id is None:
@@ -92,9 +166,94 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             and existing_entry.data.get(CONF_METER_ID) == meter_id
         ]
         if not duplicate_entries:
-            hass.config_entries.async_update_entry(entry, unique_id=meter_id)
+            hass.config_entries.async_update_entry(
+                entry,
+                unique_id=meter_id,
+            )
 
     _migrate_legacy_sensor_unique_ids(hass, entry)
+
+    options = entry.options
+    meter_id = entry.data[CONF_METER_ID]
+    api = MojElektroApi(
+        entry.data[CONF_TOKEN],
+        meter_id,
+        options.get(
+            CONF_DECIMAL,
+            entry.data.get(CONF_DECIMAL, DEFAULT_DECIMAL),
+        ),
+        async_get_clientsession(hass),
+        lookback_days=options.get(
+            CONF_LOOKBACK_DAYS,
+            DEFAULT_LOOKBACK_DAYS,
+        ),
+        enable_15min=options.get(
+            CONF_ENABLE_15MIN,
+            DEFAULT_ENABLE_15MIN,
+        ),
+        enable_daily=options.get(
+            CONF_ENABLE_DAILY,
+            DEFAULT_ENABLE_DAILY,
+        ),
+        enable_total=options.get(
+            CONF_ENABLE_TOTAL,
+            DEFAULT_ENABLE_TOTAL,
+        ),
+        enable_tariff_blocks=options.get(
+            CONF_ENABLE_TARIFF_BLOCKS,
+            DEFAULT_ENABLE_TARIFF_BLOCKS,
+        ),
+        enable_contracted_power=options.get(
+            CONF_ENABLE_CONTRACTED_POWER,
+            DEFAULT_ENABLE_CONTRACTED_POWER,
+        ),
+        enable_souporaba=options.get(
+            CONF_ENABLE_SOUPORABA,
+            DEFAULT_ENABLE_SOUPORABA,
+        ),
+        extra_reading_tags=options.get(
+            CONF_EXTRA_READING_TAGS,
+            DEFAULT_EXTRA_READING_TAGS,
+        ),
+    )
+
+    async def async_update_data():
+        """Fetch data and translate API errors to Home Assistant errors."""
+        try:
+            return await api.getData()
+        except MojElektroAuthError as err:
+            raise ConfigEntryAuthFailed(
+                "Moj Elektro authentication failed"
+            ) from err
+        except MojElektroError as err:
+            raise UpdateFailed(str(err)) from err
+        except Exception as err:
+            raise UpdateFailed(
+                "Unexpected Moj Elektro update error "
+                f"({type(err).__name__})"
+            ) from None
+
+    coordinator = DataUpdateCoordinator(
+        hass,
+        _LOGGER,
+        # Coordinator names are included in Home Assistant error logs. Do not
+        # put the user's EIMM or another metering identifier in this value.
+        name=DOMAIN,
+        update_method=async_update_data,
+        update_interval=timedelta(
+            minutes=options.get(
+                CONF_UPDATE_INTERVAL,
+                DEFAULT_UPDATE_INTERVAL,
+            )
+        ),
+    )
+
+    await coordinator.async_config_entry_first_refresh()
+
+    entry.runtime_data = MojElektroRuntimeData(
+        api=api,
+        coordinator=coordinator,
+    )
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True
@@ -102,4 +261,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a Moj Elektro config entry."""
-    return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    return await hass.config_entries.async_unload_platforms(
+        entry,
+        PLATFORMS,
+    )

@@ -3,47 +3,41 @@ name: Python check
 on:
   workflow_dispatch:
   push:
+    branches:
+      - main
   pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: "${{ github.workflow }}-${{ github.ref }}"
+  cancel-in-progress: true
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: "3.14"
 
       - name: Install validation dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install "homeassistant==2026.9.3" "flake8>=7,<8" "pytest>=8,<9"
+          python -m pip install "homeassistant==2026.9.3" "flake8>=7,<8" "pytest>=8,<9" "PyYAML>=6,<7"
 
       - name: Compile integration
         run: python -m compileall -q custom_components/mojelektro
 
-      - name: Regression check empty API payloads
-        run: |
-          python - <<'PY'
-          import json
-
-          from custom_components.mojelektro.const import (
-              SETUP_TAG_15_ARRAY,
-              SETUP_TAG_BLOCKS_ARRAY,
-          )
-          from custom_components.mojelektro.moj_elektro_api import MojElektroApi
-
-          api = MojElektroApi("test-token", "test-meter", 4, None)
-
-          assert api.sensors_output([], json.loads(SETUP_TAG_15_ARRAY)) == {}
-          assert api.consumption_by_block([], json.loads(SETUP_TAG_BLOCKS_ARRAY)) == {}
-          PY
-
-      - name: Run tariff regression tests
-        run: python -m pytest -q tests/test_tariff.py
+      - name: Run regression tests
+        run: python -m pytest -q tests
 
       - name: Check for Python errors
         run: |
@@ -52,3 +46,41 @@ jobs:
             --select=E9,F63,F7,F82 \
             --show-source \
             --statistics
+
+      - name: Build Home Assistant beta ZIP
+        if: github.event_name == 'workflow_dispatch'
+        id: beta_zip
+        run: |
+          VERSION="$(python -c 'import json; print(json.load(open("custom_components/mojelektro/manifest.json"))["version"])')"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          python - "$VERSION" <<'PY'
+          from pathlib import Path
+          import shutil
+          import sys
+
+          version = sys.argv[1]
+          source = Path("custom_components/mojelektro")
+          staging = Path("dist/mojelektro")
+          shutil.rmtree("dist", ignore_errors=True)
+          shutil.copytree(
+              source,
+              staging,
+              ignore=shutil.ignore_patterns("__pycache__", "*.pyc"),
+          )
+          shutil.make_archive(
+              f"dist/mojelektro-{version}",
+              "zip",
+              root_dir="dist",
+              base_dir="mojelektro",
+          )
+          PY
+
+      - name: Upload beta ZIP
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v7
+        with:
+          name: mojelektro-${{ steps.beta_zip.outputs.version }}-${{ github.sha }}
+          path: dist/mojelektro-${{ steps.beta_zip.outputs.version }}.zip
+          retention-days: 7
+          if-no-files-found: error
+

@@ -3,14 +3,10 @@
     "step": {
       "user": {
         "title": "Connect to Moj Elektro API",
-        "description": "Enter your credentials to connect to Moj Elektro API.",
+        "description": "Enter your Moj Elektro API token and EIMM. Runtime behavior can be changed later from Configure.",
         "data": {
           "token": "Token",
-          "meter_id": "Meter ID (EIMM)",
-          "decimal": "Decimal places for sensors."
-        },
-        "data_description": {
-          "decimal": "Leave empty for default (4) or enter decimal places for energy sensors (0-10)."
+          "meter_id": "Meter ID (EIMM)"
         }
       },
       "reauth_confirm": {
@@ -22,13 +18,165 @@
       }
     },
     "error": {
-      "cannot_connect": "Failed to connect to the service, please check your credentials.",
-      "invalid_auth": "Invalid API token or meter ID (EIMM).",
-      "unknown": "An unknown error occurred."
+      "cannot_connect": "Failed to connect to the service.",
+      "invalid_auth": "The API token is invalid or is not authorized.",
+      "unknown": "An unknown error occurred.",
+      "invalid_meter": "The EIMM is invalid, does not exist, or is not accessible with this token."
     },
     "abort": {
-      "already_configured": "This device is already configured.",
+      "already_configured": "This metering point is already configured.",
       "reauth_successful": "Re-authentication was successful."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Moj Elektro settings",
+        "description": "Choose how often Moj Elektro is queried and which sensor groups are enabled.",
+        "data": {
+          "decimal": "Decimal places",
+          "update_interval_minutes": "Update interval (minutes)",
+          "lookback_days": "15-minute lookback window (days)",
+          "enable_15min": "Enable latest 15-minute readings",
+          "enable_daily": "Enable daily and monthly readings",
+          "enable_tariff_blocks": "Enable calculated network tariff-block consumption",
+          "enable_contracted_power": "Enable contracted power sensors",
+          "enable_total": "Enable cumulative meter registers",
+          "enable_souporaba": "Enable souporaba summary",
+          "stale_after_hours": "Warn about stale data after (hours)",
+          "extra_reading_tags": "Advanced reading types"
+        },
+        "data_description": {
+          "decimal": "Number of decimal places used for numeric sensor values.",
+          "update_interval_minutes": "How often Home Assistant checks Moj Elektro. Allowed range: 5–1440 minutes; default: 60. Use the Refresh data button for an immediate check.",
+          "lookback_days": "How many days are queried when looking for the newest published 15-minute reading.",
+          "enable_tariff_blocks": "These sensors are calculated locally from the Slovenian network tariff schedule.",
+          "enable_contracted_power": "Reads blocks 1-5 from the official metering-point metadata.",
+          "enable_total": "Adds cumulative import/export meter registers suitable for the Home Assistant Energy Dashboard.",
+          "enable_souporaba": "Shows only counts by sharing status; EIMM, GSRN and contact details are not exposed as entity states.",
+          "stale_after_hours": "The diagnostic problem sensor turns on when the newest published reading is older than this threshold. Allowed range: 24–168 hours.",
+          "extra_reading_tags": "Select additional registers directly from the official /reading-type catalogue (for example power or reactive energy). Built-in A+/A- sensors are already covered by the main groups."
+        }
+      }
+    }
+  },
+  "entity": {
+    "button": {
+      "refresh_data": {
+        "name": "Refresh data"
+      }
+    },
+    "sensor": {
+      "last_published_reading": {
+        "name": "Last published reading"
+      },
+      "interval_input": {
+        "name": "15-minute import"
+      },
+      "interval_output": {
+        "name": "15-minute export"
+      },
+      "daily_input": {
+        "name": "Daily import"
+      },
+      "daily_input_peak": {
+        "name": "Daily import (peak tariff)"
+      },
+      "daily_input_offpeak": {
+        "name": "Daily import (off-peak tariff)"
+      },
+      "daily_output": {
+        "name": "Daily export"
+      },
+      "daily_output_peak": {
+        "name": "Daily export (peak tariff)"
+      },
+      "daily_output_offpeak": {
+        "name": "Daily export (off-peak tariff)"
+      },
+      "monthly_input": {
+        "name": "Monthly import"
+      },
+      "monthly_input_peak": {
+        "name": "Monthly import (peak tariff)"
+      },
+      "monthly_input_offpeak": {
+        "name": "Monthly import (off-peak tariff)"
+      },
+      "monthly_output": {
+        "name": "Monthly export"
+      },
+      "monthly_output_peak": {
+        "name": "Monthly export (peak tariff)"
+      },
+      "monthly_output_offpeak": {
+        "name": "Monthly export (off-peak tariff)"
+      },
+      "total_input": {
+        "name": "Total import"
+      },
+      "total_input_peak": {
+        "name": "Total import (peak tariff)"
+      },
+      "total_input_offpeak": {
+        "name": "Total import (off-peak tariff)"
+      },
+      "total_output": {
+        "name": "Total export"
+      },
+      "total_output_peak": {
+        "name": "Total export (peak tariff)"
+      },
+      "total_output_offpeak": {
+        "name": "Total export (off-peak tariff)"
+      },
+      "daily_input_blok_1": {
+        "name": "Daily import – block 1"
+      },
+      "daily_input_blok_2": {
+        "name": "Daily import – block 2"
+      },
+      "daily_input_blok_3": {
+        "name": "Daily import – block 3"
+      },
+      "daily_input_blok_4": {
+        "name": "Daily import – block 4"
+      },
+      "daily_input_blok_5": {
+        "name": "Daily import – block 5"
+      },
+      "casovni_blok_1": {
+        "name": "Contracted power – block 1"
+      },
+      "casovni_blok_2": {
+        "name": "Contracted power – block 2"
+      },
+      "casovni_blok_3": {
+        "name": "Contracted power – block 3"
+      },
+      "casovni_blok_4": {
+        "name": "Contracted power – block 4"
+      },
+      "casovni_blok_5": {
+        "name": "Contracted power – block 5"
+      },
+      "souporaba_total": {
+        "name": "Sharing requests"
+      },
+      "souporaba_confirmed": {
+        "name": "Confirmed sharing requests"
+      },
+      "souporaba_in_progress": {
+        "name": "Sharing requests in progress"
+      },
+      "souporaba_rejected": {
+        "name": "Rejected sharing requests"
+      }
+    },
+    "binary_sensor": {
+      "data_stale": {
+        "name": "Data stale"
+      }
     }
   }
 }

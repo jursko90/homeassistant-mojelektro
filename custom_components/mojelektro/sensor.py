@@ -1,6 +1,6 @@
 """Sensor platform for the Moj Elektro integration."""
 
-from datetime import timedelta
+from datetime import datetime
 import logging
 
 from homeassistant.components.sensor import (
@@ -9,61 +9,41 @@ from homeassistant.components.sensor import (
     SensorStateClass,
 )
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import UnitOfEnergy, UnitOfPower
+from homeassistant.const import EntityCategory, UnitOfEnergy, UnitOfPower
 from homeassistant.core import HomeAssistant
-from homeassistant.exceptions import ConfigEntryAuthFailed
-from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.device_registry import DeviceEntryType
-from homeassistant.helpers.update_coordinator import (
-    CoordinatorEntity,
-    DataUpdateCoordinator,
-    UpdateFailed,
-)
+from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import CONF_DECIMAL, CONF_METER_ID, CONF_TOKEN, DOMAIN, VERSION
-from .moj_elektro_api import (
-    MojElektroApi,
-    MojElektroAuthError,
-    MojElektroError,
+from .const import (
+    CONF_METER_ID,
+    DOMAIN,
+    LAST_PUBLISHED_READING_SENSOR,
+    SENSOR_TRANSLATION_KEYS,
+    VERSION,
 )
+from .moj_elektro_api import MojElektroApi
 
 _LOGGER = logging.getLogger(__name__)
 
 
 async def async_setup_entry(
-    hass: HomeAssistant, entry: ConfigEntry, async_add_entities
+    hass: HomeAssistant,
+    entry: ConfigEntry,
+    async_add_entities,
 ) -> None:
-    """Set up Moj Elektro sensors from a config entry."""
-    token = entry.data[CONF_TOKEN]
+    """Set up Moj Elektro sensors from the shared runtime."""
+    runtime = entry.runtime_data
+    coordinator = runtime.coordinator
+    api = runtime.api
     meter_id = entry.data[CONF_METER_ID]
-    decimal = entry.data.get(CONF_DECIMAL)
-    session = async_get_clientsession(hass)
-
-    api = MojElektroApi(token, meter_id, decimal, session)
-
-    async def async_update_data():
-        """Fetch data and translate API errors to Home Assistant errors."""
-        try:
-            return await api.getData()
-        except MojElektroAuthError as err:
-            raise ConfigEntryAuthFailed("Moj Elektro authentication failed") from err
-        except MojElektroError as err:
-            raise UpdateFailed(str(err)) from err
-        except Exception as err:
-            raise UpdateFailed(f"Unexpected Moj Elektro update error: {err}") from err
-
-    coordinator = DataUpdateCoordinator(
-        hass,
-        _LOGGER,
-        name="mojelektro_sensor",
-        update_method=async_update_data,
-        update_interval=timedelta(seconds=30),
-    )
-
-    await coordinator.async_config_entry_first_refresh()
 
     sensors = [
-        MojElektroSensor(coordinator, measurement, meter_id)
+        MojElektroSensor(
+            coordinator,
+            measurement,
+            meter_id,
+            api,
+        )
         for measurement in coordinator.data
     ]
     async_add_entities(sensors)
@@ -72,29 +52,101 @@ async def async_setup_entry(
 class MojElektroSensor(CoordinatorEntity, SensorEntity):
     """Representation of a Moj Elektro sensor."""
 
-    def __init__(self, coordinator, measurement_name: str, meter_id: str) -> None:
+    def __init__(
+        self,
+        coordinator,
+        measurement_name: str,
+        meter_id: str,
+        api: MojElektroApi,
+    ) -> None:
         """Initialize the sensor."""
         super().__init__(coordinator)
 
         self.meter_id = meter_id
         self.measurement_name = measurement_name
+        self.api = api
         self._last_known_state = None
 
-        # Preserve the historic default unique-id format, but make it deterministic.
         self._attr_unique_id = (
             f"{meter_id}-sensor.{DOMAIN}_{measurement_name.lower()}"
         )
-        self._attr_name = f"Moj Elektro {measurement_name.replace('_', ' ')}"
+        self._attr_has_entity_name = True
+        dynamic_metadata = api.dynamic_sensor_metadata.get(measurement_name)
+        if dynamic_metadata:
+            self._attr_translation_key = None
+            self._attr_name = (
+                dynamic_metadata.get("naziv")
+                or dynamic_metadata.get("opis")
+                or dynamic_metadata.get("tag")
+                or measurement_name
+            )
+        else:
+            self._attr_translation_key = SENSOR_TRANSLATION_KEYS.get(
+                measurement_name,
+                measurement_name,
+            )
 
-        if measurement_name.startswith("casovni_blok"):
+        if dynamic_metadata:
+            self._configure_dynamic_reading(dynamic_metadata)
+        elif measurement_name == LAST_PUBLISHED_READING_SENSOR:
+            self._attr_device_class = SensorDeviceClass.TIMESTAMP
+            self._attr_entity_category = EntityCategory.DIAGNOSTIC
+            self._attr_icon = "mdi:clock-check-outline"
+            self._attr_translation_key = "last_published_reading"
+        elif measurement_name.startswith("casovni_blok"):
             self._attr_native_unit_of_measurement = UnitOfPower.KILO_WATT
             self._attr_device_class = SensorDeviceClass.POWER
+            self._attr_state_class = SensorStateClass.MEASUREMENT
             self._attr_icon = "mdi:flash"
+        elif measurement_name.startswith("souporaba_"):
+            self._attr_state_class = SensorStateClass.MEASUREMENT
+            self._attr_icon = "mdi:account-switch"
         else:
             self._attr_native_unit_of_measurement = UnitOfEnergy.KILO_WATT_HOUR
             self._attr_device_class = SensorDeviceClass.ENERGY
-            self._attr_state_class = SensorStateClass.TOTAL_INCREASING
+            if measurement_name.startswith("total_"):
+                self._attr_state_class = SensorStateClass.TOTAL_INCREASING
+            else:
+                self._attr_state_class = SensorStateClass.TOTAL
             self._attr_icon = "mdi:transmission-tower"
+
+    def _configure_dynamic_reading(self, metadata) -> None:
+        """Configure unit/state semantics for a user-selected API register."""
+        tag = str(metadata.get("tag") or "").upper()
+        value_type = str(metadata.get("vrsta") or "").upper()
+        unit = metadata.get("unit")
+
+        if tag.startswith("A"):
+            self._attr_native_unit_of_measurement = unit or "kWh"
+            self._attr_device_class = SensorDeviceClass.ENERGY
+            self._attr_state_class = (
+                SensorStateClass.TOTAL_INCREASING
+                if value_type == "STANJE"
+                else SensorStateClass.TOTAL
+            )
+            self._attr_icon = "mdi:transmission-tower"
+        elif tag.startswith("P"):
+            self._attr_native_unit_of_measurement = unit or "kW"
+            self._attr_device_class = SensorDeviceClass.POWER
+            self._attr_state_class = SensorStateClass.MEASUREMENT
+            self._attr_icon = "mdi:flash"
+        elif tag.startswith("R"):
+            self._attr_native_unit_of_measurement = unit or "kVArh"
+            self._attr_state_class = (
+                SensorStateClass.TOTAL_INCREASING
+                if value_type == "STANJE"
+                else SensorStateClass.TOTAL
+            )
+            self._attr_icon = "mdi:sine-wave"
+        elif tag.startswith("Q"):
+            self._attr_native_unit_of_measurement = unit or "kVAr"
+            self._attr_state_class = SensorStateClass.MEASUREMENT
+            self._attr_icon = "mdi:sine-wave"
+        else:
+            if unit:
+                self._attr_native_unit_of_measurement = unit
+            self._attr_state_class = SensorStateClass.MEASUREMENT
+            self._attr_icon = "mdi:gauge"
 
     @property
     def device_info(self):
@@ -103,27 +155,88 @@ class MojElektroSensor(CoordinatorEntity, SensorEntity):
             "identifiers": {(DOMAIN, self.meter_id)},
             "name": "Moj Elektro",
             "manufacturer": "Moj Elektro",
-            # Home Assistant requires model to be a string, not a set.
-            "model": self.meter_id,
+            "model": "Moj Elektro API",
             "sw_version": VERSION,
             "entry_type": DeviceEntryType.SERVICE,
         }
 
     @property
+    def last_reset(self):
+        """Return the reset point for reset-aware total sensors."""
+        if self.state_class != SensorStateClass.TOTAL:
+            return None
+
+        metadata = self.api.last_reading_metadata.get(
+            self.measurement_name,
+            {},
+        )
+        raw_value = metadata.get("last_reset")
+        if not raw_value:
+            return None
+
+        try:
+            return datetime.fromisoformat(
+                str(raw_value).replace("Z", "+00:00")
+            )
+        except ValueError:
+            return None
+
+    @property
+    def extra_state_attributes(self):
+        """Return safe source and reading-quality metadata."""
+        metadata = self.api.last_reading_metadata.get(
+            self.measurement_name,
+            {},
+        )
+        if not metadata:
+            return None
+
+        attributes = {}
+        for key in (
+            "source_timestamp",
+            "source_date",
+            "quality_flags_present",
+            "reading_qualities",
+        ):
+            if key in metadata:
+                attributes[key] = metadata[key]
+
+        return attributes or None
+
+    @property
+    def available(self) -> bool:
+        """Return whether this specific sensor has usable data."""
+        return (
+            super().available
+            and self.coordinator.data.get(self.measurement_name) is not None
+        )
+
+    @property
     def native_value(self):
         """Return the native sensor value."""
         data = self.coordinator.data.get(self.measurement_name)
+
+        if self.measurement_name == LAST_PUBLISHED_READING_SENSOR:
+            return data if isinstance(data, datetime) else None
+
         if data is not None:
             try:
-                self._last_known_state = float(data)
+                if (
+                    self.measurement_name.startswith("souporaba_")
+                    and isinstance(data, int)
+                    and not isinstance(data, bool)
+                ):
+                    self._last_known_state = data
+                else:
+                    self._last_known_state = float(data)
                 return self._last_known_state
             except (TypeError, ValueError):
                 _LOGGER.debug(
-                    "Invalid value for %s: %r", self.measurement_name, data
+                    "Invalid value for %s: %r",
+                    self.measurement_name,
+                    data,
                 )
 
-        # Contracted powers are configuration-like values. Keep the last known
-        # value if that auxiliary API endpoint is temporarily unavailable.
         if self.measurement_name.startswith("casovni_blok"):
             return self._last_known_state
 

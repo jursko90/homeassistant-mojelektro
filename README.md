@@ -37,7 +37,7 @@ Version 0.2.7 is primarily a **compatibility and stability release**. New API fu
 - automatic token reauthentication flow
 - stable entities across temporary partial API responses
 
-Moj Elektro is **not a real-time source**. Meter readings are typically available with an approximately **24-hour delay**. Data can also be incomplete or temporarily inaccurate while the upstream service aggregates readings, especially during the overnight period (roughly midnight to 06:00). Dashboards and automations should therefore not treat the 15-minute sensors as near-real-time measurements.
+Moj Elektro is **not a real-time source**. Meter readings are commonly available with roughly a **24-hour delay**, but the official Moj Elektro guidance warns that data can arrive **several days late** when acquisition or distribution-side processing is delayed. Data may also be incomplete while upstream systems are still aggregating readings. Dashboards and automations should therefore not treat the 15-minute sensors as near-real-time measurements.
 
 ## Why this fork exists
 
@@ -140,24 +140,40 @@ No `configuration.yaml` entry is required.
 - [x] stable config-entry and entity IDs
 - [x] contracted-power validity boundary fix
 - [x] safer partial/malformed API-response handling
-- [ ] add automated unit tests for API parsing and config flow
-- [ ] validate CI/HACS workflows on the fork
+- [x] add automated unit tests for API parsing and config flow
+- [x] validate Python and Hassfest workflows on the fork
+- [x] add the required GitHub repository topics and pass HACS validation
 
 ### 0.3.x — Moj Elektro API refresh
 
-- [ ] use official `/reading-type` instead of maintaining the full reading-type list manually
-- [ ] use `/reading-qualities` to expose or reject low-quality readings correctly
-- [ ] add `/souporaba` support
-- [ ] add total meter-reading sensors
-- [ ] improve long-term statistics / Energy Dashboard support
+> Current development build: **0.3.0-beta.2**. Minimum tested Home Assistant version: **2026.9.0**. The stable 0.2.7 release remains on `main` until beta validation is complete.
+
+> Development baseline for 0.3.0: **Home Assistant 2026.9+**. The stable 0.2.7 release keeps its existing baseline until 0.3.0 is released.
+
+- [x] use official `/reading-type` instead of maintaining opaque reading-type IDs manually
+- [x] use `/reading-qualities` to expose quality flags/descriptions without blindly rejecting flagged readings
+- [x] add privacy-safe opt-in `/souporaba` status summaries
+- [x] add cumulative total meter-register sensors
+- [x] improve state classes/reset semantics and add Energy Dashboard-suitable cumulative registers
 - [ ] expose useful metering-point metadata from `/merilno-mesto/{identifikator}`
-- [ ] improve contracted-power data from `/merilna-tocka/{gsrn}`
-- [ ] review the 15-minute-data window against current API behaviour
-- [ ] add Slovenian translations
+- [x] improve contracted-power data from `/merilna-tocka/{gsrn}` and cache it daily
+- [x] replace wall-clock indexing with the newest actually published 15-minute reading
+- [x] add Slovenian config, options and entity translations
+
+### 0.3.0 additional work completed on the development branch
+
+- [x] add manual API refresh button
+- [x] add last-published-reading freshness sensor
+- [x] add configurable stale-data diagnostic sensor
+- [x] migrate runtime settings to Home Assistant Options
+- [x] add config-entry v2 migration for existing 0.2.x installations
+- [x] move shared runtime state to `ConfigEntry.runtime_data`
+- [x] correct Slovenian network tariff schedule and add regression coverage
+- [x] add privacy-safe technical metadata diagnostics
 
 ### Later
 
-- [ ] diagnostics download suitable for bug reports without exposing the API token
+- [x] diagnostics download with token/EIMM redaction and no measurement values
 - [ ] broader automated test coverage against recorded/sanitized API payloads
 - [ ] release automation and tagged HACS releases
 - [ ] continue tracking upstream changes where useful
@@ -180,7 +196,7 @@ The original integration was created and maintained by **frlequ**. If the origin
 
 ## Issues and contributions
 
-For problems specific to this maintained fork, use the fork issue tracker once GitHub Issues are enabled for the repository:
+For problems specific to this maintained fork, use the fork issue tracker:
 
 https://github.com/jursko90/homeassistant-mojelektro/issues
 
