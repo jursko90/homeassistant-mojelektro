@@ -1084,24 +1084,31 @@ class MojElektroApi:
             return timedelta(hours=value)
         return timedelta(days=value)
 
+    def _dynamic_metadata_for_tag(self, tag: str) -> dict[str, Any]:
+        """Build safe entity metadata for one semantic reading tag."""
+        definition = (
+            (self._reading_types_by_tag or {}).get(tag)
+            or {}
+        )
+        return {
+            "tag": tag,
+            "naziv": definition.get("naziv"),
+            "opis": definition.get("opis"),
+            "perioda": definition.get("perioda"),
+            "vrsta": definition.get("vrsta"),
+            "unit": None,
+        }
+
     def prepare_dynamic_sensor_metadata(self) -> None:
         """Prepare selected dynamic entities even before readings exist."""
-        catalogue = self._reading_types_by_tag or {}
-
         for tag in self.extra_reading_tags:
             if tag in FIFTEEN_MINUTE_SENSORS or tag in DAILY_SENSORS:
                 continue
 
             sensor = self.sensor_key_for_tag(tag)
-            definition = catalogue.get(tag) or {}
-            self.dynamic_sensor_metadata[sensor] = {
-                "tag": tag,
-                "naziv": definition.get("naziv"),
-                "opis": definition.get("opis"),
-                "perioda": definition.get("perioda"),
-                "vrsta": definition.get("vrsta"),
-                "unit": None,
-            }
+            self.dynamic_sensor_metadata[sensor] = (
+                self._dynamic_metadata_for_tag(tag)
+            )
 
     def extra_readings_output(
         self,
@@ -1123,6 +1130,10 @@ class MojElektroApi:
 
             latest = readings[-1]
             sensor = self.sensor_key_for_tag(tag)
+            self.dynamic_sensor_metadata.setdefault(
+                sensor,
+                self._dynamic_metadata_for_tag(tag),
+            )
             try:
                 output[sensor] = round(
                     self._finite_float(latest["value"]),
