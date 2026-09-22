@@ -20,6 +20,11 @@ async def async_get_config_entry_diagnostics(
     """Return safe diagnostics without credentials or metering values."""
     runtime = getattr(entry, "runtime_data", None)
     api = runtime.api if runtime is not None else None
+    coordinator = (
+        runtime.coordinator
+        if runtime is not None
+        else None
+    )
 
     diagnostics: dict[str, Any] = {
         "integration_version": VERSION,
@@ -27,6 +32,16 @@ async def async_get_config_entry_diagnostics(
         "options": dict(entry.options),
         "runtime_available": api is not None,
     }
+
+    if coordinator is not None:
+        diagnostics["coordinator"] = {
+            "last_update_success": coordinator.last_update_success,
+            "update_interval_seconds": (
+                coordinator.update_interval.total_seconds()
+                if coordinator.update_interval is not None
+                else None
+            ),
+        }
 
     if api is not None:
         diagnostics.update(
@@ -42,6 +57,9 @@ async def async_get_config_entry_diagnostics(
                 ),
                 "safe_meter_metadata": dict(
                     api.safe_meter_metadata
+                ),
+                "dynamic_sensor_metadata": dict(
+                    api.dynamic_sensor_metadata
                 ),
             }
         )
