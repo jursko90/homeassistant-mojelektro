@@ -30,5 +30,5 @@ def test_hacs_baseline_matches_03_development_policy():
         (ROOT / "hacs.json").read_text(encoding="utf-8")
     )
 
-    assert VERSION == "0.3.0-beta.1"
+    assert VERSION == "0.3.0-beta.2"
     assert hacs["homeassistant"] == "2026.9.0"
