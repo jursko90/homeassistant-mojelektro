@@ -941,3 +941,48 @@ def test_dynamic_period_parser_supports_common_api_labels():
     assert MojElektroApi._period_to_timedelta("PT15M") == timedelta(minutes=15)
     assert MojElektroApi._period_to_timedelta("P1D") == timedelta(days=1)
     assert MojElektroApi._period_to_timedelta("unknown") is None
+
+
+def test_daily_sparse_detection_checks_each_available_core_register():
+    """One incomplete present direction should trigger month fallback."""
+    api = MojElektroApi("token", "meter", 4, None)
+    api._tag_by_reading_type = {
+        "daily-a-plus": "A+_T0",
+        "daily-a-minus": "A-_T0",
+    }
+
+    data = [
+        {
+            "readingType": "daily-a-plus",
+            "intervalReadings": [
+                {"timestamp": "2026-10-01T00:00:00+02:00", "value": "100"},
+                {"timestamp": "2026-10-02T00:00:00+02:00", "value": "110"},
+            ],
+        },
+        {
+            "readingType": "daily-a-minus",
+            "intervalReadings": [
+                {"timestamp": "2026-10-01T00:00:00+02:00", "value": "10"},
+            ],
+        },
+    ]
+
+    assert api._daily_history_is_sparse(data)
+
+
+def test_daily_sparse_detection_ignores_absent_export_direction():
+    """No export block at all should not force fallback when import is sufficient."""
+    api = MojElektroApi("token", "meter", 4, None)
+    api._tag_by_reading_type = {"daily-a-plus": "A+_T0"}
+
+    data = [
+        {
+            "readingType": "daily-a-plus",
+            "intervalReadings": [
+                {"timestamp": "2026-10-01T00:00:00+02:00", "value": "100"},
+                {"timestamp": "2026-10-02T00:00:00+02:00", "value": "110"},
+            ],
+        }
+    ]
+
+    assert not api._daily_history_is_sparse(data)
