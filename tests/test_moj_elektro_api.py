@@ -986,3 +986,36 @@ def test_daily_sparse_detection_ignores_absent_export_direction():
     ]
 
     assert not api._daily_history_is_sparse(data)
+
+
+def test_negative_register_delta_is_not_published():
+    """Meter replacement/reset must not create negative energy statistics."""
+    api = MojElektroApi("token", "meter", 4, None)
+    api._tag_by_reading_type = {"daily-a-plus": "A+_T0"}
+
+    result = api.sensors_output(
+        [
+            {
+                "readingType": "daily-a-plus",
+                "intervalReadings": [
+                    {
+                        "timestamp": "2026-09-01T00:00:00+02:00",
+                        "value": "1200.0",
+                    },
+                    {
+                        "timestamp": "2026-09-20T00:00:00+02:00",
+                        "value": "1300.0",
+                    },
+                    {
+                        "timestamp": "2026-09-21T00:00:00+02:00",
+                        "value": "10.0",
+                    },
+                ],
+            }
+        ],
+        {"A+_T0": "daily_input"},
+        interval=False,
+    )
+
+    assert "daily_input" not in result
+    assert "monthly_input" not in result
