@@ -831,3 +831,59 @@ def test_dynamic_metadata_works_with_current_official_schema_fields():
     assert metadata["perioda"] == "15 min"
     assert metadata["vrsta"] == "KOLICINA"
     assert metadata["unit"] is None
+
+
+class SequentialDataStub(MojElektroApi):
+    """Return one good interval payload followed by an empty payload."""
+
+    def __init__(self):
+        super().__init__(
+            "token",
+            "meter",
+            4,
+            None,
+            enable_daily=False,
+            enable_total=False,
+            enable_tariff_blocks=False,
+            enable_contracted_power=False,
+        )
+        self._reading_types_by_tag = {
+            "A+": {"readingType": "dynamic-a-plus"},
+            "A-": {"readingType": "dynamic-a-minus"},
+        }
+        self._tag_by_reading_type = {
+            "dynamic-a-plus": "A+",
+            "dynamic-a-minus": "A-",
+        }
+        self.responses = [
+            [
+                {
+                    "readingType": "dynamic-a-plus",
+                    "intervalReadings": [
+                        {
+                            "timestamp": "2026-09-21T10:15:00+02:00",
+                            "value": "0.42",
+                        }
+                    ],
+                }
+            ],
+            [],
+        ]
+
+    async def get_meter_readings(self, tags, *, start_date, end_date):
+        return self.responses.pop(0)
+
+    async def get_reading_qualities(self, *, force_refresh=False):
+        return []
+
+
+def test_get_data_preserves_last_good_value_across_empty_success():
+    """A successful empty API response must not wipe a previous sensor state."""
+    api = SequentialDataStub()
+
+    first = asyncio.run(api.getData())
+    second = asyncio.run(api.getData())
+
+    assert first["15min_input"] == 0.42
+    assert second["15min_input"] == 0.42
+    assert second["15min_output"] is None
