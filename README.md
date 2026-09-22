@@ -37,7 +37,7 @@ Version 0.2.7 is primarily a **compatibility and stability release**. New API fu
 - automatic token reauthentication flow
 - stable entities across temporary partial API responses
 
-Moj Elektro is **not a real-time source**. Meter readings are typically available with an approximately **24-hour delay**. Data can also be incomplete or temporarily inaccurate while the upstream service aggregates readings, especially during the overnight period (roughly midnight to 06:00). Dashboards and automations should therefore not treat the 15-minute sensors as near-real-time measurements.
+Moj Elektro is **not a real-time source**. Meter readings are commonly available with roughly a **24-hour delay**, but the official Moj Elektro guidance warns that data can arrive **several days late** when acquisition or distribution-side processing is delayed. Data may also be incomplete while upstream systems are still aggregating readings. Dashboards and automations should therefore not treat the 15-minute sensors as near-real-time measurements.
 
 ## Why this fork exists
 
