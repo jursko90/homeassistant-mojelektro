@@ -568,3 +568,76 @@ def test_daily_history_fetches_previous_month_only_when_sparse():
     assert len(sparse_result[0]["intervalReadings"]) == 2
     assert len(enough.calls) == 1
     assert len(enough_result[0]["intervalReadings"]) == 2
+
+
+def test_dynamic_sensor_key_encodes_semantic_signs():
+    """Dynamic entity keys should be readable and collision-resistant for signs."""
+    assert MojElektroApi.sensor_key_for_tag("P+") == "reading_p_plus"
+    assert MojElektroApi.sensor_key_for_tag("Q-") == "reading_q_minus"
+    assert MojElektroApi.sensor_key_for_tag("R+_T0") == "reading_r_plus_t0"
+
+
+def test_extra_reading_output_uses_live_catalogue_metadata():
+    """Selected advanced readings should inherit semantic metadata from API."""
+    api = MojElektroApi(
+        "token",
+        "meter",
+        4,
+        None,
+        extra_reading_tags=("P+",),
+    )
+    api._tag_by_reading_type = {
+        "dynamic-power-import": "P+",
+        "dynamic-reactive": "R+",
+    }
+    api._reading_types_by_tag = {
+        "P+": {
+            "oznaka": "P+",
+            "naziv": "Prejeta 15 minutna delovna moč",
+            "perioda": "15 min",
+            "vrsta": "KOLICINA",
+        },
+        "R+": {
+            "oznaka": "R+",
+            "naziv": "Prejeta jalova energija",
+            "perioda": "15 min",
+            "vrsta": "KOLICINA",
+        },
+    }
+
+    result = api.extra_readings_output(
+        [
+            {
+                "readingType": "dynamic-power-import",
+                "intervalReadings": [
+                    {
+                        "timestamp": "2026-09-21T10:15:00+02:00",
+                        "value": "2.75",
+                    }
+                ],
+            },
+            {
+                "readingType": "dynamic-reactive",
+                "intervalReadings": [
+                    {
+                        "timestamp": "2026-09-21T10:15:00+02:00",
+                        "value": "1.25",
+                    }
+                ],
+            },
+        ]
+    )
+
+    assert result == {"reading_p_plus": 2.75}
+    assert api.dynamic_sensor_metadata["reading_p_plus"] == {
+        "tag": "P+",
+        "naziv": "Prejeta 15 minutna delovna moč",
+        "opis": None,
+        "perioda": "15 min",
+        "vrsta": "KOLICINA",
+        "unit": None,
+    }
+    assert (
+        api.last_reading_metadata["reading_p_plus"]["last_reset"]
+        == "2026-09-21T10:00:00+02:00"
+    )
