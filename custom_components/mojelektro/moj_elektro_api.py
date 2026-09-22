@@ -338,6 +338,83 @@ class MojElektroApi:
             block for block in interval_blocks if isinstance(block, dict)
         ]
 
+    def _daily_history_is_sparse(
+        self,
+        data: list[dict[str, Any]],
+    ) -> bool:
+        """Return whether daily register data lacks two core states."""
+        counts: dict[str, int] = {}
+
+        for block in data:
+            tag = self._tag_for_reading_type(
+                str(block.get("readingType", ""))
+            )
+            if tag not in ("A+_T0", "A-_T0"):
+                continue
+            counts[tag] = len(self._sorted_readings(block))
+
+        return max(counts.values(), default=0) < 2
+
+    @staticmethod
+    def _merge_interval_blocks(
+        *datasets: list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
+        """Merge interval blocks by reading type and de-duplicate timestamps."""
+        merged: dict[str, dict[str, dict[str, Any]]] = {}
+
+        for dataset in datasets:
+            for block in dataset:
+                reading_type = str(block.get("readingType", ""))
+                if not reading_type:
+                    continue
+
+                readings_by_timestamp = merged.setdefault(
+                    reading_type,
+                    {},
+                )
+                for reading in block.get("intervalReadings") or []:
+                    if not isinstance(reading, dict):
+                        continue
+                    timestamp = reading.get("timestamp")
+                    if timestamp:
+                        readings_by_timestamp[str(timestamp)] = reading
+
+        return [
+            {
+                "readingType": reading_type,
+                "intervalReadings": [
+                    readings_by_timestamp[timestamp]
+                    for timestamp in sorted(readings_by_timestamp)
+                ],
+            }
+            for reading_type, readings_by_timestamp in merged.items()
+        ]
+
+    async def _get_daily_readings(
+        self,
+        today: date,
+    ) -> list[dict[str, Any]]:
+        """Fetch enough daily register history across a month boundary."""
+        current_month_start = today.replace(day=1)
+        current = await self.get_meter_readings(
+            list(DAILY_SENSORS),
+            start_date=current_month_start,
+            end_date=today,
+        )
+
+        if not self._daily_history_is_sparse(current):
+            return current
+
+        previous_month_start = (
+            current_month_start - timedelta(days=1)
+        ).replace(day=1)
+        previous = await self.get_meter_readings(
+            list(DAILY_SENSORS),
+            start_date=previous_month_start,
+            end_date=current_month_start,
+        )
+        return self._merge_interval_blocks(previous, current)
+
     async def getMeterReadings(self, rType=None):
         """Compatibility wrapper for code using the 0.2.x API method."""
         today = dt_util.now().date()
@@ -348,16 +425,7 @@ class MojElektroApi:
                 end_date=today,
             )
 
-        start_date = (
-            today - timedelta(days=1)
-            if today.day == 1
-            else today.replace(day=1)
-        )
-        return await self.get_meter_readings(
-            list(DAILY_SENSORS),
-            start_date=start_date,
-            end_date=today,
-        )
+        return await self._get_daily_readings(today)
 
     async def getData(self) -> dict[str, Any]:
         """Fetch the configured sensor groups and preserve prior good values."""
@@ -381,16 +449,7 @@ class MojElektroApi:
             )
 
         if self.enable_daily or self.enable_total:
-            daily_start = (
-                today - timedelta(days=1)
-                if today.day == 1
-                else today.replace(day=1)
-            )
-            daily_data = await self.get_meter_readings(
-                list(DAILY_SENSORS),
-                start_date=daily_start,
-                end_date=today,
-            )
+            daily_data = await self._get_daily_readings(today)
 
         if fifteen_data or daily_data:
             try:
@@ -634,11 +693,35 @@ class MojElektroApi:
                 continue
 
             try:
-                first_value = float(readings[0]["value"])
                 previous_value = float(readings[-2]["value"])
                 latest_value = float(readings[-1]["value"])
+                latest_timestamp = datetime.fromisoformat(
+                    str(readings[-1]["timestamp"]).replace("Z", "+00:00")
+                )
             except (KeyError, TypeError, ValueError):
                 _LOGGER.debug("Invalid daily readings for %s", sensor)
+                continue
+
+            month_readings = []
+            for reading in readings:
+                try:
+                    reading_timestamp = datetime.fromisoformat(
+                        str(reading["timestamp"]).replace("Z", "+00:00")
+                    )
+                except (KeyError, TypeError, ValueError):
+                    continue
+                if (
+                    reading_timestamp.year == latest_timestamp.year
+                    and reading_timestamp.month == latest_timestamp.month
+                ):
+                    month_readings.append(reading)
+
+            if not month_readings:
+                continue
+
+            try:
+                month_first_value = float(month_readings[0]["value"])
+            except (KeyError, TypeError, ValueError):
                 continue
 
             sensor_output[sensor] = round(
@@ -647,7 +730,7 @@ class MojElektroApi:
             )
             monthly_sensor = sensor.replace("daily_", "monthly_", 1)
             sensor_output[monthly_sensor] = round(
-                latest_value - first_value,
+                latest_value - month_first_value,
                 self.decimal,
             )
 
@@ -659,9 +742,11 @@ class MojElektroApi:
             )
             self._remember_reading_metadata(
                 monthly_sensor,
-                readings[0],
+                month_readings[0],
                 readings[-1],
-                last_reset=str(readings[0].get("timestamp") or "") or None,
+                last_reset=str(
+                    month_readings[0].get("timestamp") or ""
+                ) or None,
             )
 
         return sensor_output
