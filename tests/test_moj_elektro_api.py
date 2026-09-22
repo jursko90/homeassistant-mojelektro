@@ -1139,3 +1139,54 @@ def test_advanced_and_builtin_interval_tags_share_one_api_request():
     asyncio.run(api.getData())
 
     assert api.calls == [{"A+", "A-", "P+"}]
+
+
+class MeterMessageTimestampStub(MojElektroApi):
+    """Return controlled meter-readings messageCreated timestamps."""
+
+    def __init__(self):
+        super().__init__("token", "meter", 4, None)
+        self._reading_types_by_tag = {
+            "A+": {"readingType": "dynamic-a-plus"},
+        }
+        self._tag_by_reading_type = {
+            "dynamic-a-plus": "A+",
+        }
+        self.timestamps = [
+            "2026-09-22T06:30:00+00:00",
+            "2026-09-22T06:00:00+00:00",
+        ]
+
+    async def _request_json(self, path, *, params=None):
+        assert path == "/meter-readings"
+        return {
+            "messageCreated": self.timestamps.pop(0),
+            "intervalBlocks": [],
+        }
+
+
+def test_meter_message_created_keeps_newest_server_timestamp():
+    """Diagnostics should retain the newest API message timestamp seen."""
+    api = MeterMessageTimestampStub()
+
+    asyncio.run(
+        api.get_meter_readings(
+            ["A+"],
+            start_date=date(2026, 9, 20),
+            end_date=date(2026, 9, 22),
+        )
+    )
+    first = api.last_meter_message_created
+
+    asyncio.run(
+        api.get_meter_readings(
+            ["A+"],
+            start_date=date(2026, 9, 20),
+            end_date=date(2026, 9, 22),
+        )
+    )
+
+    assert first is not None
+    assert first.isoformat() == "2026-09-22T06:30:00+00:00"
+    assert api.last_meter_message_created == first
+    assert api.last_meter_response_at is not None
