@@ -48,7 +48,7 @@ _LOGGER = logging.getLogger(__name__)
 class MojeElektroFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle the Moj Elektro config flow."""
 
-    VERSION = 1
+    VERSION = 2
 
     async def _async_validate(self, token: str, meter_id: str) -> str | None:
         """Validate credentials and return an error key on failure."""
