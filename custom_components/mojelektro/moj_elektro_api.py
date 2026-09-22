@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import aiohttp
+import asyncio
 from datetime import date, datetime, timedelta
 import logging
 import re
@@ -24,6 +25,7 @@ from .const import (
     DEFAULT_LOOKBACK_DAYS,
     FIFTEEN_MINUTE_SENSORS,
     LAST_PUBLISHED_READING_SENSOR,
+    REQUEST_TIMEOUT_SECONDS,
     TOTAL_REGISTER_SENSORS,
     TARIFF_BLOCK_SENSORS,
     SOUPORABA_SENSORS,
@@ -111,24 +113,43 @@ class MojElektroApi:
         """Fetch and validate JSON from the Moj Elektro API."""
         url = f"{API_BASE_URL}{path}"
         try:
-            async with self.session.get(
-                url,
-                headers=self.headers,
-                params=params,
-            ) as response:
-                if response.status == 200:
-                    return await response.json(content_type=None)
-                if response.status in (401, 403):
-                    raise MojElektroAuthError(
-                        f"Moj Elektro authentication failed (HTTP {response.status})"
+            async with asyncio.timeout(REQUEST_TIMEOUT_SECONDS):
+                async with self.session.get(
+                    url,
+                    headers=self.headers,
+                    params=params,
+                ) as response:
+                    if response.status == 200:
+                        return await response.json(content_type=None)
+                    if response.status in (401, 403):
+                        raise MojElektroAuthError(
+                            "Moj Elektro authentication failed "
+                            f"(HTTP {response.status})"
+                        )
+                    if response.status in (400, 404):
+                        raise MojElektroRequestError(
+                            f"Moj Elektro rejected {path} "
+                            f"(HTTP {response.status})"
+                        )
+                    if response.status == 429:
+                        retry_after = response.headers.get("Retry-After")
+                        suffix = (
+                            f"; retry after {retry_after}s"
+                            if retry_after
+                            else ""
+                        )
+                        raise MojElektroConnectionError(
+                            "Moj Elektro API rate limit reached"
+                            f"{suffix}"
+                        )
+                    raise MojElektroConnectionError(
+                        f"Moj Elektro API returned HTTP "
+                        f"{response.status} for {path}"
                     )
-                if response.status in (400, 404):
-                    raise MojElektroRequestError(
-                        f"Moj Elektro rejected {path} (HTTP {response.status})"
-                    )
-                raise MojElektroConnectionError(
-                    f"Moj Elektro API returned HTTP {response.status} for {path}"
-                )
+        except TimeoutError as err:
+            raise MojElektroConnectionError(
+                "Moj Elektro API request timed out"
+            ) from err
         except aiohttp.ClientError as err:
             raise MojElektroConnectionError(
                 f"Error connecting to Moj Elektro: {err}"
