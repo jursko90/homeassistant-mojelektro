@@ -825,13 +825,31 @@ class MojElektroApi:
     ) -> None:
         """Remember non-sensitive source metadata for diagnostics/state handling."""
         metadata: dict[str, Any] = {}
-        timestamps = [
-            str(reading.get("timestamp"))
-            for reading in readings
-            if reading.get("timestamp")
-        ]
-        if timestamps:
-            metadata["source_timestamp"] = max(timestamps)
+        timestamp_candidates: list[tuple[datetime, str]] = []
+        for reading in readings:
+            raw_timestamp = reading.get("timestamp")
+            if not raw_timestamp:
+                continue
+            try:
+                parsed_timestamp = datetime.fromisoformat(
+                    str(raw_timestamp).replace("Z", "+00:00")
+                )
+            except ValueError:
+                continue
+            if parsed_timestamp.tzinfo is None:
+                continue
+            timestamp_candidates.append(
+                (
+                    parsed_timestamp.astimezone(timezone.utc),
+                    str(raw_timestamp),
+                )
+            )
+
+        if timestamp_candidates:
+            metadata["source_timestamp"] = max(
+                timestamp_candidates,
+                key=lambda pair: pair[0],
+            )[1]
         if source_date:
             metadata["source_date"] = source_date
         if last_reset:
