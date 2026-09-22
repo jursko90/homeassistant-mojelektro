@@ -145,19 +145,30 @@ No `configuration.yaml` entry is required.
 
 ### 0.3.x — Moj Elektro API refresh
 
-- [ ] use official `/reading-type` instead of maintaining the full reading-type list manually
-- [ ] use `/reading-qualities` to expose or reject low-quality readings correctly
-- [ ] add `/souporaba` support
-- [ ] add total meter-reading sensors
-- [ ] improve long-term statistics / Energy Dashboard support
+- [x] use official `/reading-type` instead of maintaining opaque reading-type IDs manually
+- [x] use `/reading-qualities` to expose quality flags/descriptions without blindly rejecting flagged readings
+- [x] add privacy-safe opt-in `/souporaba` status summaries
+- [x] add cumulative total meter-register sensors
+- [x] improve state classes/reset semantics and add Energy Dashboard-suitable cumulative registers
 - [ ] expose useful metering-point metadata from `/merilno-mesto/{identifikator}`
-- [ ] improve contracted-power data from `/merilna-tocka/{gsrn}`
-- [ ] review the 15-minute-data window against current API behaviour
-- [ ] add Slovenian translations
+- [x] improve contracted-power data from `/merilna-tocka/{gsrn}` and cache it daily
+- [x] replace wall-clock indexing with the newest actually published 15-minute reading
+- [x] add Slovenian config, options and entity translations
+
+### 0.3.0 additional work completed on the development branch
+
+- [x] add manual API refresh button
+- [x] add last-published-reading freshness sensor
+- [x] add configurable stale-data diagnostic sensor
+- [x] migrate runtime settings to Home Assistant Options
+- [x] add config-entry v2 migration for existing 0.2.x installations
+- [x] move shared runtime state to `ConfigEntry.runtime_data`
+- [x] correct Slovenian network tariff schedule and add regression coverage
+- [x] add privacy-safe technical metadata diagnostics
 
 ### Later
 
-- [ ] diagnostics download suitable for bug reports without exposing the API token
+- [x] diagnostics download with token/EIMM redaction and no measurement values
 - [ ] broader automated test coverage against recorded/sanitized API payloads
 - [ ] release automation and tagged HACS releases
 - [ ] continue tracking upstream changes where useful
