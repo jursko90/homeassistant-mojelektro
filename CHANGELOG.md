@@ -21,18 +21,29 @@
 - add switches for 15-minute, daily/monthly, tariff-block and contracted-power sensor groups
 - add Slovenian config/options translations
 - automatically reload the integration after option changes using Home Assistant's current OptionsFlowWithReload pattern
+- migrate legacy 0.2.x decimal configuration into the 0.3.0 Options schema without losing user settings
+- use ConfigEntry runtime data to share one API client/coordinator across platforms
+- add a localized manual Refresh data button for immediate API refreshes
+- add a configurable stale-data threshold (24-168 hours, default 48)
 
 ### Data quality, statistics and diagnostics
 
 - load the official `/reading-qualities` catalogue and retain quality flags/descriptions as non-sensitive diagnostics metadata
 - add cumulative import/export meter-register sensors for Home Assistant Energy Dashboard use
-- correct sensor state classes: interval/daily values use reset-aware totals, cumulative/monthly values use increasing totals, and contracted power uses measurement semantics
+- correct sensor state classes: interval/daily/monthly values use reset-aware totals, cumulative meter registers use increasing totals, and contracted power uses measurement semantics
 - calculate tariff-block totals from the latest complete 15-minute day only (92/96/100 intervals), avoiding partial overnight data and multi-day double counting
 - correct the Slovenian network tariff hour boundaries against the current Energy Agency act and isolate the tariff/holiday rules in a dedicated tested module
 - use the Home Assistant timezone for date boundaries instead of the host/container timezone
 - add privacy-safe diagnostics that redact token and EIMM and never include measurement values
 - add opt-in privacy-safe `souporaba` status-count sensors while keeping EIMM/GSRN/contact details out of entity states
 - add API methods for souporaba detail and network-charge overview without exposing those sensitive payloads by default
+- add a last-published-reading timestamp diagnostic sensor
+- add a stale-data problem binary sensor based on the user-configured freshness threshold
+- expose source timestamps and reading-quality flags as non-sensitive entity attributes
+- retain a privacy-safe technical meter metadata subset for diagnostics only
+- cache contracted-power metadata for the current day instead of querying two metadata endpoints on every poll
+- stop exposing EIMM as the Home Assistant device model
+- add full English and Slovenian entity display-name translations
 
 ### Tests
 
@@ -40,6 +51,13 @@
 - verify meter-reading requests use IDs returned by the official catalogue
 - verify empty API responses never synthesize false zero energy values
 - verify 15-minute sensors select the newest published reading
+- verify reset boundaries for interval, daily and monthly energy values
+- verify 0.2.x to 0.3.0 config-entry migration preserves settings
+- verify reading-quality metadata, total registers, complete-day tariff calculation and souporaba privacy
+- verify current Slovenian tariff boundaries and work-free-day handling
+- verify freshness threshold behavior and last-published timestamp selection
+- verify safe technical diagnostics exclude personal identifiers
+- verify contracted-power metadata caching
 
 All notable changes to this maintained fork are documented here.
 
