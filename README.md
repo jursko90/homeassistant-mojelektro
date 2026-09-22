@@ -193,7 +193,7 @@ The original integration was created and maintained by **frlequ**. If the origin
 
 ## Issues and contributions
 
-For problems specific to this maintained fork, use the fork issue tracker once GitHub Issues are enabled for the repository:
+For problems specific to this maintained fork, use the fork issue tracker:
 
 https://github.com/jursko90/homeassistant-mojelektro/issues
 
