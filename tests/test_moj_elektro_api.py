@@ -1300,3 +1300,39 @@ def test_optional_auth_failure_propagates_without_core_verification():
         assert False, "Expected MojElektroAuthError"
     except MojElektroAuthError:
         pass
+
+
+def test_api_error_path_redacts_meter_identifiers():
+    """EIMM/GSRN values must not be included in log-safe endpoint labels."""
+    assert MojElektroApi._safe_path_label(
+        "/merilno-mesto/SECRET-EIMM"
+    ) == "/merilno-mesto/{identifikator}"
+    assert MojElektroApi._safe_path_label(
+        "/merilna-tocka/SECRET-GSRN"
+    ) == "/merilna-tocka/{gsrn}"
+    assert MojElektroApi._safe_path_label(
+        "/souporaba/12345"
+    ) == "/souporaba/{sifra}"
+    assert MojElektroApi._safe_path_label(
+        "/reading-type"
+    ) == "/reading-type"
+
+
+def test_request_error_does_not_expose_identifier():
+    """HTTP request errors must use the redacted endpoint label."""
+    api = MojElektroApi(
+        "token",
+        "SECRET-EIMM",
+        4,
+        FakeHttpSession(FakeHttpResponse(404)),
+    )
+
+    try:
+        asyncio.run(
+            api._request_json("/merilno-mesto/SECRET-EIMM")
+        )
+        assert False, "Expected MojElektroRequestError"
+    except MojElektroRequestError as err:
+        rendered = str(err)
+        assert "SECRET-EIMM" not in rendered
+        assert "/merilno-mesto/{identifikator}" in rendered
