@@ -1546,3 +1546,40 @@ def test_reading_type_catalogue_keeps_non_primary_variant():
     )
     assert missing == []
     assert ("option", "ReadingType=variant-id") in params
+
+
+class DuplicateReadingTypeRowsStub(MojElektroApi):
+    """Return split/duplicate rows for one semantic tag."""
+
+    async def _request_json(self, path, *, params=None):
+        assert path == "/reading-type"
+        return [
+            {
+                "oznaka": "P+",
+                "naziv": "Power",
+                "readingTypeBrezObracuna": "non-billing-id",
+                "vrsta": "KOLICINA",
+            },
+            {
+                "oznaka": "P+",
+                "naziv": "Power duplicate",
+                "readingTypeObracun": "billing-id",
+                "vrsta": "KOLICINA",
+            },
+        ]
+
+
+def test_duplicate_reading_type_rows_merge_without_last_row_wins():
+    """Split catalogue rows should merge variant IDs and keep stable metadata."""
+    api = DuplicateReadingTypeRowsStub("token", "meter", 4, None)
+
+    catalogue = asyncio.run(api.get_reading_types())
+    row = catalogue["P+"]
+
+    assert row["naziv"] == "Power"
+    assert row["readingTypeBrezObracuna"] == "non-billing-id"
+    assert row["readingTypeObracun"] == "billing-id"
+    assert api._tag_by_reading_type == {
+        "non-billing-id": "P+",
+        "billing-id": "P+",
+    }
