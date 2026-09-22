@@ -1,6 +1,7 @@
 """Config-flow validation tests for Moj Elektro."""
 
 import asyncio
+from types import SimpleNamespace
 
 import custom_components.mojelektro.config_flow as config_flow
 from custom_components.mojelektro.moj_elektro_api import (
@@ -72,3 +73,14 @@ def test_config_validation_unknown_error(monkeypatch):
         monkeypatch,
         RuntimeError("unexpected"),
     ) == "unknown"
+
+
+def test_duplicate_meter_detection_does_not_depend_on_unique_id():
+    """Legacy entries without unique IDs must still block duplicate EIMM setup."""
+    entries = [
+        SimpleNamespace(data={"meter_id": "meter-a"}, unique_id=None),
+        SimpleNamespace(data={"meter_id": "meter-b"}, unique_id=None),
+    ]
+
+    assert config_flow._meter_id_already_configured(entries, "meter-a")
+    assert not config_flow._meter_id_already_configured(entries, "meter-c")
