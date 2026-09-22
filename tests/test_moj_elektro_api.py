@@ -1,7 +1,10 @@
 """Regression tests for Moj Elektro API processing."""
 
 import asyncio
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, time, timedelta, timezone
+from zoneinfo import ZoneInfo
+
+import aiohttp
 
 from custom_components.mojelektro.const import (
     FIFTEEN_MINUTE_SENSORS,
@@ -318,6 +321,97 @@ def test_daily_and_monthly_reset_metadata():
         api.last_reading_metadata["monthly_input"]["last_reset"]
         == "2026-09-01T00:00:00+02:00"
     )
+
+
+def test_daily_delta_rejects_missing_calendar_day():
+    """Two register states spanning multiple days are not a daily total."""
+    api = MojElektroApi("token", "meter", 4, None)
+    api._tag_by_reading_type = {"daily-a-plus": "A+_T0"}
+
+    result = api.sensors_output(
+        [
+            {
+                "readingType": "daily-a-plus",
+                "intervalReadings": [
+                    {
+                        "timestamp": "2026-09-01T00:00:00+02:00",
+                        "value": "1000.0",
+                    },
+                    {
+                        "timestamp": "2026-09-19T00:00:00+02:00",
+                        "value": "1120.0",
+                    },
+                    {
+                        "timestamp": "2026-09-21T00:00:00+02:00",
+                        "value": "1135.0",
+                    },
+                ],
+            }
+        ],
+        {"A+_T0": "daily_input"},
+        interval=False,
+    )
+
+    assert "daily_input" not in result
+    assert result["monthly_input"] == 135.0
+
+
+def test_monthly_delta_requires_first_state_of_month():
+    """A partial month must not be published as full month-to-date usage."""
+    api = MojElektroApi("token", "meter", 4, None)
+    api._tag_by_reading_type = {"daily-a-plus": "A+_T0"}
+
+    result = api.sensors_output(
+        [
+            {
+                "readingType": "daily-a-plus",
+                "intervalReadings": [
+                    {
+                        "timestamp": "2026-09-20T00:00:00+02:00",
+                        "value": "1120.0",
+                    },
+                    {
+                        "timestamp": "2026-09-21T00:00:00+02:00",
+                        "value": "1127.5",
+                    },
+                ],
+            }
+        ],
+        {"A+_T0": "daily_input"},
+        interval=False,
+    )
+
+    assert result["daily_input"] == 7.5
+    assert "monthly_input" not in result
+
+
+def test_daily_dates_are_normalized_to_slovenian_time():
+    """UTC daily states must use their Slovenian calendar date."""
+    api = MojElektroApi("token", "meter", 4, None)
+    api._tag_by_reading_type = {"daily-a-plus": "A+_T0"}
+
+    result = api.sensors_output(
+        [
+            {
+                "readingType": "daily-a-plus",
+                "intervalReadings": [
+                    {
+                        "timestamp": "2026-09-30T22:00:00Z",
+                        "value": "1010.0",
+                    },
+                    {
+                        "timestamp": "2026-10-01T22:00:00Z",
+                        "value": "1017.0",
+                    },
+                ],
+            }
+        ],
+        {"A+_T0": "daily_input"},
+        interval=False,
+    )
+
+    assert result["daily_input"] == 7.0
+    assert result["monthly_input"] == 7.0
 
 
 def test_latest_source_timestamp_uses_newest_published_register():
@@ -683,6 +777,13 @@ class FakeHttpSession:
         return self.response
 
 
+class FailingHttpSession:
+    """HTTP session whose exception text contains sensitive request data."""
+
+    def get(self, *args, **kwargs):
+        raise aiohttp.ClientConnectionError("SECRET-EIMM")
+
+
 def test_rate_limit_error_includes_retry_after():
     """HTTP 429 should be recognizable and preserve Retry-After context."""
     api = MojElektroApi(
@@ -724,6 +825,30 @@ def test_invalid_json_is_translated_to_request_error():
         assert False, "Expected MojElektroRequestError"
     except MojElektroRequestError as err:
         assert "invalid JSON" in str(err)
+
+
+def test_connection_error_does_not_expose_identifier():
+    """Low-level client errors must not leak EIMM through their message."""
+    api = MojElektroApi(
+        "token",
+        "SECRET-EIMM",
+        4,
+        FailingHttpSession(),
+    )
+
+    try:
+        asyncio.run(
+            api._request_json(
+                "/meter-readings",
+                params={"usagePoint": "SECRET-EIMM"},
+            )
+        )
+        assert False, "Expected MojElektroConnectionError"
+    except MojElektroConnectionError as err:
+        rendered = str(err)
+        assert "SECRET-EIMM" not in rendered
+        assert "/meter-readings" in rendered
+        assert err.__cause__ is None
 
 
 def test_dynamic_metadata_exists_before_first_reading():
@@ -1047,6 +1172,109 @@ def test_tariff_day_duplicates_do_not_fake_completeness():
     )
 
     assert result == {}
+
+
+def test_tariff_day_uses_date_specific_dst_interval_count():
+    """A 92-reading ordinary day is partial, not a complete DST day."""
+    api = MojElektroApi("token", "meter", 4, None)
+    api._tag_by_reading_type = {"dynamic-a-plus": "A+"}
+
+    start = datetime(
+        2026,
+        9,
+        19,
+        0,
+        15,
+        tzinfo=timezone(timedelta(hours=2)),
+    )
+    readings = [
+        {
+            "timestamp": (start + timedelta(minutes=15 * index)).isoformat(),
+            "value": "1.0",
+        }
+        for index in range(92)
+    ]
+
+    assert api.consumption_by_block(
+        [
+            {
+                "readingType": "dynamic-a-plus",
+                "intervalReadings": readings,
+            }
+        ]
+    ) == {}
+
+
+def test_tariff_days_accept_utc_and_dst_interval_sequences():
+    """Complete Slovenian days remain complete across UTC and DST forms."""
+    zone = ZoneInfo("Europe/Ljubljana")
+
+    for reading_date, expected_count in (
+        (date(2026, 3, 29), 92),
+        (date(2026, 9, 19), 96),
+        (date(2026, 10, 25), 100),
+    ):
+        api = MojElektroApi("token", "meter", 4, None)
+        api._tag_by_reading_type = {"dynamic-a-plus": "A+"}
+        local_start = datetime.combine(reading_date, time.min, tzinfo=zone)
+        next_local_start = datetime.combine(
+            reading_date + timedelta(days=1),
+            time.min,
+            tzinfo=zone,
+        )
+        interval_end = local_start.astimezone(timezone.utc) + timedelta(
+            minutes=15
+        )
+        end = next_local_start.astimezone(timezone.utc)
+        readings = []
+        while interval_end <= end:
+            readings.append(
+                {
+                    "timestamp": interval_end.isoformat(),
+                    "value": "1.0",
+                }
+            )
+            interval_end += timedelta(minutes=15)
+
+        result = api.consumption_by_block(
+            [
+                {
+                    "readingType": "dynamic-a-plus",
+                    "intervalReadings": readings,
+                }
+            ]
+        )
+
+        assert len(readings) == expected_count
+        assert round(sum(result.values()), 4) == float(expected_count)
+
+
+def test_interval_reset_uses_real_instant_across_spring_dst():
+    """The reset point must not be an imaginary spring-forward local time."""
+    api = MojElektroApi("token", "meter", 4, None)
+    api._tag_by_reading_type = {"dynamic-a-plus": "A+"}
+
+    result = api.sensors_output(
+        [
+            {
+                "readingType": "dynamic-a-plus",
+                "intervalReadings": [
+                    {
+                        "timestamp": "2026-03-29T03:00:00+02:00",
+                        "value": "0.25",
+                    }
+                ],
+            }
+        ],
+        FIFTEEN_MINUTE_SENSORS,
+        interval=True,
+    )
+
+    assert result["15min_input"] == 0.25
+    assert (
+        api.last_reading_metadata["15min_input"]["last_reset"]
+        == "2026-03-29T01:45:00+01:00"
+    )
 
 
 def test_tariff_day_rejects_off_grid_interval():

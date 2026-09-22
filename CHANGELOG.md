@@ -32,7 +32,7 @@
 - use ConfigEntry runtime data to share one API client/coordinator across platforms
 - add a localized manual Refresh data button for immediate API refreshes
 - add a configurable stale-data threshold (24-168 hours, default 48)
-- synchronize the legacy decimal copy for 0.2.x rollback compatibility when an upgraded user changes the 0.3.0 option
+- preserve and synchronize the legacy decimal copy during migration; downgrading the schema-v2 entry still requires restoring a pre-upgrade Home Assistant backup
 - use a conservative 60-minute default polling interval while allowing 5-1440 minutes
 - require the tested Home Assistant 2026.9+ baseline for the 0.3.0 HACS build
 

@@ -142,9 +142,9 @@ async def async_migrate_entry(
         if legacy_decimal is not None and CONF_DECIMAL not in options:
             options[CONF_DECIMAL] = legacy_decimal
 
-        # Keep the legacy decimal copy in entry.data for 0.2.x rollback
-        # compatibility. New 0.3.x entries store runtime settings only
-        # in options and therefore do not add this field to entry.data.
+        # Preserve the legacy data shape during migration. A full downgrade
+        # still requires restoring a pre-upgrade backup because 0.2.x cannot
+        # load a schema-v2 config entry.
         hass.config_entries.async_update_entry(
             entry,
             data=data,
@@ -229,13 +229,16 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             raise UpdateFailed(str(err)) from err
         except Exception as err:
             raise UpdateFailed(
-                f"Unexpected Moj Elektro update error: {err}"
-            ) from err
+                "Unexpected Moj Elektro update error "
+                f"({type(err).__name__})"
+            ) from None
 
     coordinator = DataUpdateCoordinator(
         hass,
         _LOGGER,
-        name=f"{DOMAIN}_{meter_id}",
+        # Coordinator names are included in Home Assistant error logs. Do not
+        # put the user's EIMM or another metering identifier in this value.
+        name=DOMAIN,
         update_method=async_update_data,
         update_interval=timedelta(
             minutes=options.get(

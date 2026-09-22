@@ -68,11 +68,12 @@ def test_config_validation_connection_error(monkeypatch):
     ) == "cannot_connect"
 
 
-def test_config_validation_unknown_error(monkeypatch):
+def test_config_validation_unknown_error(monkeypatch, caplog):
     assert run_validation(
         monkeypatch,
-        RuntimeError("unexpected"),
+        RuntimeError("SECRET-EIMM"),
     ) == "unknown"
+    assert "SECRET-EIMM" not in caplog.text
 
 
 def test_duplicate_meter_detection_does_not_depend_on_unique_id():

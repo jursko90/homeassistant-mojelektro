@@ -116,9 +116,10 @@ async def async_validate_connection(
             err,
         )
         return "cannot_connect"
-    except Exception:
-        _LOGGER.exception(
-            "Unexpected error while validating Moj Elektro"
+    except Exception as err:
+        _LOGGER.debug(
+            "Unexpected error while validating Moj Elektro (%s)",
+            type(err).__name__,
         )
         return "unknown"
 

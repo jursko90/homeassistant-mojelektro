@@ -7,9 +7,11 @@ start is used when selecting the applicable block.
 
 from __future__ import annotations
 
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, time, timedelta, timezone
+from zoneinfo import ZoneInfo
 
 HIGH_SEASON_MONTHS = frozenset({11, 12, 1, 2})
+SLOVENIA_TIME_ZONE = ZoneInfo("Europe/Ljubljana")
 
 # Slovenian public holidays which are legally work-free days.
 FIXED_DAYS_OFF = frozenset(
@@ -93,10 +95,49 @@ def is_slovenian_day_off(value: date) -> bool:
     return value == easter + timedelta(days=1)
 
 
+def expected_quarter_hour_intervals(value: date) -> int:
+    """Return the exact number of intervals on a Slovenian calendar day."""
+    local_start = datetime.combine(
+        value,
+        time.min,
+        tzinfo=SLOVENIA_TIME_ZONE,
+    )
+    local_end = datetime.combine(
+        value + timedelta(days=1),
+        time.min,
+        tzinfo=SLOVENIA_TIME_ZONE,
+    )
+    seconds = (
+        local_end.astimezone(timezone.utc)
+        - local_start.astimezone(timezone.utc)
+    ).total_seconds()
+    return int(seconds // (15 * 60))
+
+
+def slovenian_period_start(
+    timestamp: str,
+    period: timedelta,
+) -> datetime:
+    """Return a period start normalized to Slovenian civil time."""
+    interval_end = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+    if interval_end.tzinfo is None:
+        raise ValueError("timestamp has no timezone offset")
+
+    # Subtract in UTC so spring-forward and fall-back intervals remain real
+    # instants rather than imaginary or ambiguous local wall-clock times.
+    return (
+        interval_end.astimezone(timezone.utc) - period
+    ).astimezone(SLOVENIA_TIME_ZONE)
+
+
+def slovenian_interval_start(timestamp: str) -> datetime:
+    """Return a 15-minute interval start in Slovenian civil time."""
+    return slovenian_period_start(timestamp, timedelta(minutes=15))
+
+
 def network_tariff_block(timestamp: str) -> int:
     """Return network tariff block 1-5 for an interval-end timestamp."""
-    interval_end = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
-    interval_start = interval_end - timedelta(minutes=15)
+    interval_start = slovenian_interval_start(timestamp)
 
     high_season = interval_start.month in HIGH_SEASON_MONTHS
     day_off = is_slovenian_day_off(interval_start.date())

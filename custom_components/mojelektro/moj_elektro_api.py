@@ -32,7 +32,13 @@ from .const import (
     TARIFF_BLOCK_SENSORS,
     SOUPORABA_SENSORS,
 )
-from .tariff import network_tariff_block
+from .tariff import (
+    SLOVENIA_TIME_ZONE,
+    expected_quarter_hour_intervals,
+    network_tariff_block,
+    slovenian_interval_start,
+    slovenian_period_start,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -164,18 +170,19 @@ class MojElektroApi:
                         f"Moj Elektro API returned HTTP "
                         f"{response.status} for {safe_path}"
                     )
-        except TimeoutError as err:
+        except TimeoutError:
             raise MojElektroConnectionError(
                 "Moj Elektro API request timed out"
-            ) from err
-        except ValueError as err:
+            ) from None
+        except ValueError:
             raise MojElektroRequestError(
                 "Moj Elektro API returned invalid JSON"
-            ) from err
+            ) from None
         except aiohttp.ClientError as err:
             raise MojElektroConnectionError(
-                f"Error connecting to Moj Elektro: {err}"
-            ) from err
+                "Error connecting to Moj Elektro at "
+                f"{safe_path} ({type(err).__name__})"
+            ) from None
 
     async def validate_token(self) -> bool:
         """Validate core API access for the configured metering point."""
@@ -938,11 +945,8 @@ class MojElektroApi:
                     )
                     reset_at = None
                     if raw_timestamp:
-                        reset_at = (
-                            datetime.fromisoformat(
-                                raw_timestamp.replace("Z", "+00:00")
-                            )
-                            - timedelta(minutes=15)
+                        reset_at = slovenian_interval_start(
+                            raw_timestamp
                         ).isoformat()
                     self._remember_reading_metadata(
                         sensor,
@@ -960,9 +964,12 @@ class MojElektroApi:
             try:
                 previous_value = self._finite_float(readings[-2]["value"])
                 latest_value = self._finite_float(readings[-1]["value"])
+                previous_timestamp = datetime.fromisoformat(
+                    str(readings[-2]["timestamp"]).replace("Z", "+00:00")
+                ).astimezone(SLOVENIA_TIME_ZONE)
                 latest_timestamp = datetime.fromisoformat(
                     str(readings[-1]["timestamp"]).replace("Z", "+00:00")
-                )
+                ).astimezone(SLOVENIA_TIME_ZONE)
             except (KeyError, TypeError, ValueError):
                 _LOGGER.debug("Invalid daily readings for %s", sensor)
                 continue
@@ -972,7 +979,7 @@ class MojElektroApi:
                 try:
                     reading_timestamp = datetime.fromisoformat(
                         str(reading["timestamp"]).replace("Z", "+00:00")
-                    )
+                    ).astimezone(SLOVENIA_TIME_ZONE)
                 except (KeyError, TypeError, ValueError):
                     continue
                 if (
@@ -993,7 +1000,11 @@ class MojElektroApi:
             monthly_delta = latest_value - month_first_value
             monthly_sensor = sensor.replace("daily_", "monthly_", 1)
 
-            if daily_delta >= 0:
+            consecutive_daily_states = (
+                latest_timestamp.date() - previous_timestamp.date()
+                == timedelta(days=1)
+            )
+            if daily_delta >= 0 and consecutive_daily_states:
                 sensor_output[sensor] = round(
                     daily_delta,
                     self.decimal,
@@ -1006,14 +1017,24 @@ class MojElektroApi:
                         readings[-2].get("timestamp") or ""
                     ) or None,
                 )
-            else:
+            elif daily_delta < 0:
                 _LOGGER.warning(
                     "Skipping negative daily delta for %s; "
                     "meter register may have reset or been replaced",
                     sensor,
                 )
+            else:
+                _LOGGER.warning(
+                    "Skipping non-consecutive daily delta for %s; "
+                    "one or more daily states are missing",
+                    sensor,
+                )
 
-            if monthly_delta >= 0:
+            month_first_timestamp = datetime.fromisoformat(
+                str(month_readings[0]["timestamp"]).replace("Z", "+00:00")
+            ).astimezone(SLOVENIA_TIME_ZONE)
+            complete_month_baseline = month_first_timestamp.day == 1
+            if monthly_delta >= 0 and complete_month_baseline:
                 sensor_output[monthly_sensor] = round(
                     monthly_delta,
                     self.decimal,
@@ -1026,10 +1047,16 @@ class MojElektroApi:
                         month_readings[0].get("timestamp") or ""
                     ) or None,
                 )
-            else:
+            elif monthly_delta < 0:
                 _LOGGER.warning(
                     "Skipping negative monthly delta for %s; "
                     "meter register may have reset or been replaced",
+                    monthly_sensor,
+                )
+            else:
+                _LOGGER.warning(
+                    "Skipping incomplete monthly delta for %s; "
+                    "the first state of the month is missing",
                     monthly_sensor,
                 )
 
@@ -1192,11 +1219,9 @@ class MojElektroApi:
             raw_timestamp = str(latest.get("timestamp") or "")
             if period_delta is not None and raw_timestamp:
                 try:
-                    reset_at = (
-                        datetime.fromisoformat(
-                            raw_timestamp.replace("Z", "+00:00")
-                        )
-                        - period_delta
+                    reset_at = slovenian_period_start(
+                        raw_timestamp,
+                        period_delta,
                     ).isoformat()
                 except ValueError:
                     reset_at = None
@@ -1330,10 +1355,7 @@ class MojElektroApi:
             for reading in self._sorted_readings(block):
                 try:
                     timestamp = str(reading["timestamp"])
-                    interval_end = datetime.fromisoformat(
-                        timestamp.replace("Z", "+00:00")
-                    )
-                    interval_start = interval_end - timedelta(minutes=15)
+                    interval_start = slovenian_interval_start(timestamp)
                     self._finite_float(reading["value"])
                 except (KeyError, TypeError, ValueError):
                     continue
@@ -1357,7 +1379,8 @@ class MojElektroApi:
         complete_dates = [
             reading_date
             for reading_date, readings in readings_by_date.items()
-            if len(readings) in (92, 96, 100)
+            if len(readings)
+            == expected_quarter_hour_intervals(reading_date)
         ]
         if not complete_dates:
             _LOGGER.debug(

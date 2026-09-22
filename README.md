@@ -140,8 +140,9 @@ No `configuration.yaml` entry is required.
 - [x] stable config-entry and entity IDs
 - [x] contracted-power validity boundary fix
 - [x] safer partial/malformed API-response handling
-- [ ] add automated unit tests for API parsing and config flow
-- [ ] validate CI/HACS workflows on the fork
+- [x] add automated unit tests for API parsing and config flow
+- [x] validate Python and Hassfest workflows on the fork
+- [ ] add the required GitHub repository topics for a fully green HACS check
 
 ### 0.3.x — Moj Elektro API refresh
 

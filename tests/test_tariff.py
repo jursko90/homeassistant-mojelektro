@@ -5,6 +5,7 @@ from datetime import date
 import pytest
 
 from custom_components.mojelektro.tariff import (
+    expected_quarter_hour_intervals,
     is_slovenian_day_off,
     network_tariff_block,
 )
@@ -15,6 +16,7 @@ from custom_components.mojelektro.tariff import (
     [
         # Higher season, workday (Monday 12 January 2026).
         ("2026-01-12T06:15:00+01:00", 1),  # interval 06:00-06:15
+        ("2026-01-12T05:15:00Z", 1),  # same instant, expressed in UTC
         ("2026-01-12T12:15:00+01:00", 2),
         ("2026-01-12T17:15:00+01:00", 1),
         ("2026-01-12T20:15:00+01:00", 2),
@@ -50,3 +52,10 @@ def test_non_work_free_state_holiday_is_not_forced_day_off():
     """A state holiday which is not work-free should keep weekday rules."""
     # Primož Trubar Day is a state holiday but explicitly not work-free.
     assert not is_slovenian_day_off(date(2026, 6, 8))
+
+
+def test_expected_interval_count_follows_slovenian_dst():
+    """Only actual DST transition days may contain 92 or 100 intervals."""
+    assert expected_quarter_hour_intervals(date(2026, 3, 29)) == 92
+    assert expected_quarter_hour_intervals(date(2026, 9, 19)) == 96
+    assert expected_quarter_hour_intervals(date(2026, 10, 25)) == 100

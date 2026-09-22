@@ -53,6 +53,11 @@ class MojElektroRefreshButton(CoordinatorEntity, ButtonEntity):
             "entry_type": DeviceEntryType.SERVICE,
         }
 
+    @property
+    def available(self) -> bool:
+        """Keep manual retry available after a failed coordinator update."""
+        return True
+
     async def async_press(self) -> None:
         """Request a fresh API update immediately."""
         await self.coordinator.async_request_refresh()
