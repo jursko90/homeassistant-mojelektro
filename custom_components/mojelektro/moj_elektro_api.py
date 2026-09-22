@@ -866,8 +866,25 @@ class MojElektroApi:
             return None
 
         text = str(period).strip().lower().replace(",", ".")
+
+        iso_match = re.fullmatch(
+            r"p(?:(?P<days>\d+(?:\.\d+)?)d)?"
+            r"(?:t(?:(?P<hours>\d+(?:\.\d+)?)h)?"
+            r"(?:(?P<minutes>\d+(?:\.\d+)?)m)?)?",
+            text,
+        )
+        if iso_match is not None and any(iso_match.groupdict().values()):
+            return timedelta(
+                days=float(iso_match.group("days") or 0),
+                hours=float(iso_match.group("hours") or 0),
+                minutes=float(iso_match.group("minutes") or 0),
+            )
+
         match = re.fullmatch(
-            r"(?P<value>\d+(?:\.\d+)?)\s*(?P<unit>min|m|h|hour|hours|d|day|days)",
+            r"(?P<value>\d+(?:\.\d+)?)\s*"
+            r"(?P<unit>min|minut|minuta|minute|m|"
+            r"h|ura|ure|ur|hour|hours|"
+            r"d|dan|dni|day|days)",
             text,
         )
         if match is None:
@@ -876,9 +893,9 @@ class MojElektroApi:
         value = float(match.group("value"))
         unit = match.group("unit")
 
-        if unit in {"min", "m"}:
+        if unit in {"min", "minut", "minuta", "minute", "m"}:
             return timedelta(minutes=value)
-        if unit in {"h", "hour", "hours"}:
+        if unit in {"h", "ura", "ure", "ur", "hour", "hours"}:
             return timedelta(hours=value)
         return timedelta(days=value)
 
@@ -898,9 +915,7 @@ class MojElektroApi:
                 "opis": definition.get("opis"),
                 "perioda": definition.get("perioda"),
                 "vrsta": definition.get("vrsta"),
-                # The current official schema does not define a unit field.
-                # Keep this optional for forward compatibility only.
-                "unit": definition.get("merilnaEnota"),
+                "unit": None,
             }
 
     def extra_readings_output(
