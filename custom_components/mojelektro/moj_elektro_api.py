@@ -181,6 +181,24 @@ class MojElektroApi:
         await self.get_meter_site()
         return True
 
+    @staticmethod
+    def _preferred_reading_type(
+        definition: dict[str, Any] | None,
+    ) -> str | None:
+        """Choose the best queryable opaque ID from an official catalogue row."""
+        if not definition:
+            return None
+
+        for key in (
+            "readingType",
+            "readingTypeBrezObracuna",
+            "readingTypeObracun",
+        ):
+            value = definition.get(key)
+            if value:
+                return str(value)
+        return None
+
     async def get_reading_types(
         self, *, force_refresh: bool = False
     ) -> dict[str, dict[str, Any]]:
@@ -202,8 +220,7 @@ class MojElektroApi:
                 continue
 
             tag = item.get("oznaka")
-            reading_type = item.get("readingType")
-            if not tag or not reading_type:
+            if not tag or self._preferred_reading_type(item) is None:
                 continue
 
             by_tag[str(tag)] = item
@@ -355,11 +372,7 @@ class MojElektroApi:
         missing_tags: list[str] = []
         for tag in tags:
             definition = reading_types.get(tag)
-            reading_type = (
-                definition.get("readingType")
-                if definition
-                else None
-            )
+            reading_type = self._preferred_reading_type(definition)
             if not reading_type:
                 missing_tags.append(str(tag))
                 continue
