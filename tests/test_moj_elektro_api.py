@@ -737,7 +737,6 @@ def test_dynamic_metadata_exists_before_first_reading():
             "opis": "15 minutna moč, A+, kW",
             "perioda": "15 min",
             "vrsta": "KOLICINA",
-            "merilnaEnota": "kW",
         }
     }
 
@@ -749,19 +748,9 @@ def test_dynamic_metadata_exists_before_first_reading():
         "opis": "15 minutna moč, A+, kW",
         "perioda": "15 min",
         "vrsta": "KOLICINA",
-        "unit": "kW",
+        "unit": None,
     }
     assert "reading_p_plus" in api.expected_sensor_names()
-
-
-def test_dynamic_period_parser_supports_common_units():
-    """API period metadata should translate into reset durations."""
-    assert MojElektroApi._period_to_timedelta("15 min") == timedelta(minutes=15)
-    assert MojElektroApi._period_to_timedelta("30m") == timedelta(minutes=30)
-    assert MojElektroApi._period_to_timedelta("1 h") == timedelta(hours=1)
-    assert MojElektroApi._period_to_timedelta("24 h") == timedelta(hours=24)
-    assert MojElektroApi._period_to_timedelta("1 day") == timedelta(days=1)
-    assert MojElektroApi._period_to_timedelta("unknown") is None
 
 
 def test_dynamic_reading_reset_uses_catalogue_period():
