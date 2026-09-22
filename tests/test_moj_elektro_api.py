@@ -1583,3 +1583,34 @@ def test_duplicate_reading_type_rows_merge_without_last_row_wins():
         "non-billing-id": "P+",
         "billing-id": "P+",
     }
+
+
+class CoreValidationStub(MojElektroApi):
+    """Validate using core reading endpoints only."""
+
+    def __init__(self):
+        super().__init__("token", "meter", 4, None)
+        self.reading_calls = 0
+
+    async def get_reading_types(self, *, force_refresh=False):
+        return {
+            "A+": {
+                "readingType": "a-plus",
+            }
+        }
+
+    async def get_meter_readings(self, tags, *, start_date, end_date):
+        self.reading_calls += 1
+        assert tags == ["A+"]
+        return []
+
+    async def get_meter_site(self):
+        raise AssertionError("optional meter metadata must not validate core access")
+
+
+def test_validate_token_uses_core_meter_readings_and_accepts_empty_success():
+    """A valid account with no fresh readings should still pass setup."""
+    api = CoreValidationStub()
+
+    assert asyncio.run(api.validate_token())
+    assert api.reading_calls == 1
