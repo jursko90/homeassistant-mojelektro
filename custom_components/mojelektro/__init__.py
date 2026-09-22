@@ -138,10 +138,13 @@ async def async_migrate_entry(
         data = dict(entry.data)
         options = dict(entry.options)
 
-        legacy_decimal = data.pop(CONF_DECIMAL, None)
+        legacy_decimal = data.get(CONF_DECIMAL)
         if legacy_decimal is not None and CONF_DECIMAL not in options:
             options[CONF_DECIMAL] = legacy_decimal
 
+        # Keep the legacy decimal copy in entry.data for 0.2.x rollback
+        # compatibility. New 0.3.x entries store runtime settings only
+        # in options and therefore do not add this field to entry.data.
         hass.config_entries.async_update_entry(
             entry,
             data=data,
