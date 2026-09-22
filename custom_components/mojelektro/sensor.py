@@ -177,7 +177,7 @@ class MojElektroSensor(CoordinatorEntity, SensorEntity):
         else:
             self._attr_native_unit_of_measurement = UnitOfEnergy.KILO_WATT_HOUR
             self._attr_device_class = SensorDeviceClass.ENERGY
-            if measurement_name.startswith(("total_", "monthly_")):
+            if measurement_name.startswith("total_"):
                 self._attr_state_class = SensorStateClass.TOTAL_INCREASING
             else:
                 self._attr_state_class = SensorStateClass.TOTAL
@@ -215,6 +215,28 @@ class MojElektroSensor(CoordinatorEntity, SensorEntity):
             )
         except ValueError:
             return None
+
+    @property
+    def extra_state_attributes(self):
+        """Return safe source and reading-quality metadata."""
+        metadata = self.api.last_reading_metadata.get(
+            self.measurement_name,
+            {},
+        )
+        if not metadata:
+            return None
+
+        attributes = {}
+        for key in (
+            "source_timestamp",
+            "source_date",
+            "quality_flags_present",
+            "reading_qualities",
+        ):
+            if key in metadata:
+                attributes[key] = metadata[key]
+
+        return attributes or None
 
     @property
     def native_value(self):
