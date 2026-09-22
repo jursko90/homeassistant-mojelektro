@@ -1,6 +1,6 @@
 """Sensor platform for the Moj Elektro integration."""
 
-from datetime import datetime, timedelta
+from datetime import datetime
 import logging
 
 from homeassistant.components.sensor import (
@@ -11,133 +11,33 @@ from homeassistant.components.sensor import (
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import UnitOfEnergy, UnitOfPower
 from homeassistant.core import HomeAssistant
-from homeassistant.exceptions import ConfigEntryAuthFailed
-from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.device_registry import DeviceEntryType
-from homeassistant.helpers.update_coordinator import (
-    CoordinatorEntity,
-    DataUpdateCoordinator,
-    UpdateFailed,
-)
+from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import (
-    CONF_DECIMAL,
-    CONF_ENABLE_15MIN,
-    CONF_ENABLE_CONTRACTED_POWER,
-    CONF_ENABLE_DAILY,
-    CONF_ENABLE_TOTAL,
-    CONF_ENABLE_TARIFF_BLOCKS,
-    CONF_ENABLE_SOUPORABA,
-    CONF_LOOKBACK_DAYS,
-    CONF_METER_ID,
-    CONF_TOKEN,
-    CONF_UPDATE_INTERVAL,
-    DEFAULT_DECIMAL,
-    DEFAULT_ENABLE_15MIN,
-    DEFAULT_ENABLE_CONTRACTED_POWER,
-    DEFAULT_ENABLE_DAILY,
-    DEFAULT_ENABLE_TOTAL,
-    DEFAULT_ENABLE_TARIFF_BLOCKS,
-    DEFAULT_ENABLE_SOUPORABA,
-    DEFAULT_LOOKBACK_DAYS,
-    DEFAULT_UPDATE_INTERVAL,
-    DOMAIN,
-    VERSION,
-)
-from .moj_elektro_api import (
-    MojElektroApi,
-    MojElektroAuthError,
-    MojElektroError,
-)
+from .const import CONF_METER_ID, DOMAIN, VERSION
+from .moj_elektro_api import MojElektroApi
 
 _LOGGER = logging.getLogger(__name__)
 
 
 async def async_setup_entry(
-    hass: HomeAssistant, entry: ConfigEntry, async_add_entities
+    hass: HomeAssistant,
+    entry: ConfigEntry,
+    async_add_entities,
 ) -> None:
-    """Set up Moj Elektro sensors from a config entry."""
-    token = entry.data[CONF_TOKEN]
+    """Set up Moj Elektro sensors from the shared runtime."""
+    runtime = hass.data[DOMAIN][entry.entry_id]
+    coordinator = runtime["coordinator"]
+    api = runtime["api"]
     meter_id = entry.data[CONF_METER_ID]
-    options = entry.options
-
-    decimal = options.get(
-        CONF_DECIMAL,
-        entry.data.get(CONF_DECIMAL, DEFAULT_DECIMAL),
-    )
-    update_interval_minutes = options.get(
-        CONF_UPDATE_INTERVAL,
-        DEFAULT_UPDATE_INTERVAL,
-    )
-
-    session = async_get_clientsession(hass)
-    api = MojElektroApi(
-        token,
-        meter_id,
-        decimal,
-        session,
-        lookback_days=options.get(
-            CONF_LOOKBACK_DAYS,
-            DEFAULT_LOOKBACK_DAYS,
-        ),
-        enable_15min=options.get(
-            CONF_ENABLE_15MIN,
-            DEFAULT_ENABLE_15MIN,
-        ),
-        enable_daily=options.get(
-            CONF_ENABLE_DAILY,
-            DEFAULT_ENABLE_DAILY,
-        ),
-        enable_total=options.get(
-            CONF_ENABLE_TOTAL,
-            DEFAULT_ENABLE_TOTAL,
-        ),
-        enable_tariff_blocks=options.get(
-            CONF_ENABLE_TARIFF_BLOCKS,
-            DEFAULT_ENABLE_TARIFF_BLOCKS,
-        ),
-        enable_contracted_power=options.get(
-            CONF_ENABLE_CONTRACTED_POWER,
-            DEFAULT_ENABLE_CONTRACTED_POWER,
-        ),
-        enable_souporaba=options.get(
-            CONF_ENABLE_SOUPORABA,
-            DEFAULT_ENABLE_SOUPORABA,
-        ),
-    )
-
-    async def async_update_data():
-        """Fetch data and translate API errors to Home Assistant errors."""
-        try:
-            return await api.getData()
-        except MojElektroAuthError as err:
-            raise ConfigEntryAuthFailed(
-                "Moj Elektro authentication failed"
-            ) from err
-        except MojElektroError as err:
-            raise UpdateFailed(str(err)) from err
-        except Exception as err:
-            raise UpdateFailed(
-                f"Unexpected Moj Elektro update error: {err}"
-            ) from err
-
-    coordinator = DataUpdateCoordinator(
-        hass,
-        _LOGGER,
-        name="mojelektro_sensor",
-        update_method=async_update_data,
-        update_interval=timedelta(minutes=update_interval_minutes),
-    )
-
-    await coordinator.async_config_entry_first_refresh()
-
-    hass.data.setdefault(DOMAIN, {})[entry.entry_id] = {
-        "api": api,
-        "coordinator": coordinator,
-    }
 
     sensors = [
-        MojElektroSensor(coordinator, measurement, meter_id, api)
+        MojElektroSensor(
+            coordinator,
+            measurement,
+            meter_id,
+            api,
+        )
         for measurement in coordinator.data
     ]
     async_add_entities(sensors)
@@ -197,7 +97,7 @@ class MojElektroSensor(CoordinatorEntity, SensorEntity):
 
     @property
     def last_reset(self):
-        """Return the reset point for interval/daily total sensors."""
+        """Return the reset point for reset-aware total sensors."""
         if self._attr_state_class != SensorStateClass.TOTAL:
             return None
 
