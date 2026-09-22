@@ -124,6 +124,10 @@ def test_interval_sensor_uses_latest_published_reading():
     )
 
     assert result["15min_input"] == 0.13
+    assert (
+        api.last_reading_metadata["15min_input"]["last_reset"]
+        == "2026-09-20T10:15:00+02:00"
+    )
 
 
 def test_reading_quality_catalog_is_attached_to_metadata():
@@ -367,3 +371,51 @@ def test_safe_meter_metadata_excludes_personal_identifiers():
         "leto_izdelave_stevca": 2024,
     }
     assert "secret" not in repr(safe)
+
+
+class ContractedPowerStub(MojElektroApi):
+    """Stub contracted-power metadata endpoints."""
+
+    def __init__(self):
+        super().__init__("token", "meter", 4, None)
+        self.site_calls = 0
+        self.point_calls = 0
+
+    async def get_meter_site(self):
+        self.site_calls += 1
+        return {
+            "merilneTocke": [
+                {"vrsta": "OMTO", "gsrn": "123456789"}
+            ]
+        }
+
+    async def get_meter_point(self, gsrn):
+        self.point_calls += 1
+        assert gsrn == "123456789"
+        return {
+            "dogovorjeneMoci": [
+                {
+                    "datumOd": "2020-01-01T00:00:00+01:00",
+                    "datumDo": "2035-12-31T23:59:59+01:00",
+                    "veljavnost": True,
+                    "casovniBlok1": "5.1",
+                    "casovniBlok2": "5.2",
+                    "casovniBlok3": "5.3",
+                    "casovniBlok4": "5.4",
+                    "casovniBlok5": "5.5",
+                }
+            ]
+        }
+
+
+def test_contracted_power_metadata_is_cached_for_the_day():
+    """Static contracted powers should not trigger two API calls every poll."""
+    api = ContractedPowerStub()
+
+    first = asyncio.run(api.get_casovni_blok())
+    second = asyncio.run(api.get_casovni_blok())
+
+    assert first == second
+    assert first["casovni_blok_1"] == 5.1
+    assert api.site_calls == 1
+    assert api.point_calls == 1
