@@ -21,7 +21,7 @@ async def async_get_config_entry_diagnostics(
     runtime = getattr(entry, "runtime_data", None)
     api = runtime.api if runtime is not None else None
     coordinator = (
-        runtime.coordinator
+        getattr(runtime, "coordinator", None)
         if runtime is not None
         else None
     )
