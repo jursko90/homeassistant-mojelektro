@@ -40,6 +40,9 @@ async def async_get_config_entry_diagnostics(
                 "latest_reading_metadata": dict(
                     api.last_reading_metadata
                 ),
+                "safe_meter_metadata": dict(
+                    api.safe_meter_metadata
+                ),
             }
         )
 
