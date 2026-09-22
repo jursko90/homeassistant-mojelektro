@@ -71,12 +71,24 @@ class MojElektroSensor(CoordinatorEntity, SensorEntity):
             f"{meter_id}-sensor.{DOMAIN}_{measurement_name.lower()}"
         )
         self._attr_has_entity_name = True
-        self._attr_translation_key = SENSOR_TRANSLATION_KEYS.get(
-            measurement_name,
-            measurement_name,
-        )
+        dynamic_metadata = api.dynamic_sensor_metadata.get(measurement_name)
+        if dynamic_metadata:
+            self._attr_translation_key = None
+            self._attr_name = (
+                dynamic_metadata.get("naziv")
+                or dynamic_metadata.get("opis")
+                or dynamic_metadata.get("tag")
+                or measurement_name
+            )
+        else:
+            self._attr_translation_key = SENSOR_TRANSLATION_KEYS.get(
+                measurement_name,
+                measurement_name,
+            )
 
-        if measurement_name == LAST_PUBLISHED_READING_SENSOR:
+        if dynamic_metadata:
+            self._configure_dynamic_reading(dynamic_metadata)
+        elif measurement_name == LAST_PUBLISHED_READING_SENSOR:
             self._attr_device_class = SensorDeviceClass.TIMESTAMP
             self._attr_entity_category = EntityCategory.DIAGNOSTIC
             self._attr_icon = "mdi:clock-check-outline"
@@ -97,6 +109,44 @@ class MojElektroSensor(CoordinatorEntity, SensorEntity):
             else:
                 self._attr_state_class = SensorStateClass.TOTAL
             self._attr_icon = "mdi:transmission-tower"
+
+    def _configure_dynamic_reading(self, metadata) -> None:
+        """Configure unit/state semantics for a user-selected API register."""
+        tag = str(metadata.get("tag") or "").upper()
+        value_type = str(metadata.get("vrsta") or "").upper()
+        unit = metadata.get("unit")
+
+        if tag.startswith("A"):
+            self._attr_native_unit_of_measurement = unit or "kWh"
+            self._attr_device_class = SensorDeviceClass.ENERGY
+            self._attr_state_class = (
+                SensorStateClass.TOTAL_INCREASING
+                if value_type == "STANJE"
+                else SensorStateClass.TOTAL
+            )
+            self._attr_icon = "mdi:transmission-tower"
+        elif tag.startswith("P"):
+            self._attr_native_unit_of_measurement = unit or "kW"
+            self._attr_device_class = SensorDeviceClass.POWER
+            self._attr_state_class = SensorStateClass.MEASUREMENT
+            self._attr_icon = "mdi:flash"
+        elif tag.startswith("R"):
+            self._attr_native_unit_of_measurement = unit or "kVArh"
+            self._attr_state_class = (
+                SensorStateClass.TOTAL_INCREASING
+                if value_type == "STANJE"
+                else SensorStateClass.TOTAL
+            )
+            self._attr_icon = "mdi:sine-wave"
+        elif tag.startswith("Q"):
+            self._attr_native_unit_of_measurement = unit or "kVAr"
+            self._attr_state_class = SensorStateClass.MEASUREMENT
+            self._attr_icon = "mdi:sine-wave"
+        else:
+            if unit:
+                self._attr_native_unit_of_measurement = unit
+            self._attr_state_class = SensorStateClass.MEASUREMENT
+            self._attr_icon = "mdi:gauge"
 
     @property
     def device_info(self):
