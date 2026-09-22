@@ -929,3 +929,15 @@ def test_builtin_tags_are_not_duplicated_as_dynamic_entities():
     assert "reading_a_plus" not in names
     assert "reading_a_plus_t0" not in names
     assert "reading_p_plus" in names
+
+
+def test_dynamic_period_parser_supports_common_api_labels():
+    """Dynamic reset periods should accept common Slovenian and ISO labels."""
+    assert MojElektroApi._period_to_timedelta("15 min") == timedelta(minutes=15)
+    assert MojElektroApi._period_to_timedelta("30 minut") == timedelta(minutes=30)
+    assert MojElektroApi._period_to_timedelta("1 ura") == timedelta(hours=1)
+    assert MojElektroApi._period_to_timedelta("24 h") == timedelta(hours=24)
+    assert MojElektroApi._period_to_timedelta("1 dan") == timedelta(days=1)
+    assert MojElektroApi._period_to_timedelta("PT15M") == timedelta(minutes=15)
+    assert MojElektroApi._period_to_timedelta("P1D") == timedelta(days=1)
+    assert MojElektroApi._period_to_timedelta("unknown") is None
