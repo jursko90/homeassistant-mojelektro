@@ -26,9 +26,9 @@ async def async_setup_entry(
     async_add_entities,
 ) -> None:
     """Set up Moj Elektro sensors from the shared runtime."""
-    runtime = hass.data[DOMAIN][entry.entry_id]
-    coordinator = runtime["coordinator"]
-    api = runtime["api"]
+    runtime = entry.runtime_data
+    coordinator = runtime.coordinator
+    api = runtime.api
     meter_id = entry.data[CONF_METER_ID]
 
     sensors = [
