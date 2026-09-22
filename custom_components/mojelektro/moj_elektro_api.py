@@ -150,6 +150,10 @@ class MojElektroApi:
             raise MojElektroConnectionError(
                 "Moj Elektro API request timed out"
             ) from err
+        except ValueError as err:
+            raise MojElektroRequestError(
+                "Moj Elektro API returned invalid JSON"
+            ) from err
         except aiohttp.ClientError as err:
             raise MojElektroConnectionError(
                 f"Error connecting to Moj Elektro: {err}"
