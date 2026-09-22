@@ -8,7 +8,7 @@ from homeassistant.components.diagnostics import async_redact_data
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 
-from .const import CONF_METER_ID, CONF_TOKEN, DOMAIN, VERSION
+from .const import CONF_METER_ID, CONF_TOKEN, VERSION
 
 TO_REDACT = {CONF_TOKEN, CONF_METER_ID}
 
@@ -18,8 +18,8 @@ async def async_get_config_entry_diagnostics(
     entry: ConfigEntry,
 ) -> dict[str, Any]:
     """Return safe diagnostics without credentials or metering values."""
-    runtime = hass.data.get(DOMAIN, {}).get(entry.entry_id, {})
-    api = runtime.get("api")
+    runtime = getattr(entry, "runtime_data", None)
+    api = runtime.api if runtime is not None else None
 
     diagnostics: dict[str, Any] = {
         "integration_version": VERSION,
