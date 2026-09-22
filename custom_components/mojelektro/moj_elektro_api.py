@@ -501,6 +501,9 @@ class MojElektroApi:
                     end_date=today,
                 )
 
+        if self.extra_reading_tags:
+            self.prepare_dynamic_sensor_metadata()
+
         if fifteen_data or daily_data or extra_data:
             try:
                 await self.get_reading_qualities()
@@ -856,6 +859,25 @@ class MojElektroApi:
         encoded = re.sub(r"_+", "_", encoded).strip("_")
         return f"reading_{encoded or 'unknown'}"
 
+    def prepare_dynamic_sensor_metadata(self) -> None:
+        """Prepare selected dynamic entities even before readings exist."""
+        catalogue = self._reading_types_by_tag or {}
+
+        for tag in self.extra_reading_tags:
+            if tag in FIFTEEN_MINUTE_SENSORS or tag in DAILY_SENSORS:
+                continue
+
+            sensor = self.sensor_key_for_tag(tag)
+            definition = catalogue.get(tag) or {}
+            self.dynamic_sensor_metadata[sensor] = {
+                "tag": tag,
+                "naziv": definition.get("naziv"),
+                "opis": definition.get("opis"),
+                "perioda": definition.get("perioda"),
+                "vrsta": definition.get("vrsta"),
+                "unit": definition.get("merilnaEnota"),
+            }
+
     def extra_readings_output(
         self,
         data: list[dict[str, Any]],
@@ -888,14 +910,6 @@ class MojElektroApi:
                 (self._reading_types_by_tag or {}).get(tag)
                 or {}
             )
-            self.dynamic_sensor_metadata[sensor] = {
-                "tag": tag,
-                "naziv": definition.get("naziv"),
-                "opis": definition.get("opis"),
-                "perioda": definition.get("perioda"),
-                "vrsta": definition.get("vrsta"),
-                "unit": definition.get("merilnaEnota"),
-            }
 
             reset_at = None
             period = str(definition.get("perioda") or "").lower()
