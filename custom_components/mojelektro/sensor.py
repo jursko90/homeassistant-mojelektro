@@ -163,7 +163,7 @@ class MojElektroSensor(CoordinatorEntity, SensorEntity):
     @property
     def last_reset(self):
         """Return the reset point for reset-aware total sensors."""
-        if self._attr_state_class != SensorStateClass.TOTAL:
+        if self.state_class != SensorStateClass.TOTAL:
             return None
 
         metadata = self.api.last_reading_metadata.get(

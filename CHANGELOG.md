@@ -38,6 +38,7 @@
 
 ### Data quality, statistics and diagnostics
 
+- fix the Last published reading diagnostic entity failing to initialize on Home Assistant 2026.9 when no numeric state class is defined
 - load the official `/reading-qualities` catalogue and retain quality flags/descriptions as non-sensitive diagnostics metadata
 - add cumulative import/export meter-register sensors for Home Assistant Energy Dashboard use
 - correct sensor state classes: interval/daily/monthly values use reset-aware totals, cumulative meter registers use increasing totals, and contracted power uses measurement semantics

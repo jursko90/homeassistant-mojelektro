@@ -146,7 +146,7 @@ No `configuration.yaml` entry is required.
 
 ### 0.3.x — Moj Elektro API refresh
 
-> Current development build: **0.3.0-beta.1**. Minimum tested Home Assistant version: **2026.9.0**. The stable 0.2.7 release remains on `main` until beta validation is complete.
+> Current development build: **0.3.0-beta.2**. Minimum tested Home Assistant version: **2026.9.0**. The stable 0.2.7 release remains on `main` until beta validation is complete.
 
 > Development baseline for 0.3.0: **Home Assistant 2026.9+**. The stable 0.2.7 release keeps its existing baseline until 0.3.0 is released.
 

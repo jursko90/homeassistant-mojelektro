@@ -1,7 +1,7 @@
 """Constants for the Moj Elektro integration."""
 
 DOMAIN = "mojelektro"
-VERSION = "0.3.0-beta.1"
+VERSION = "0.3.0-beta.2"
 
 API_BASE_URL = "https://api.informatika.si/mojelektro/v1"
 REQUEST_TIMEOUT_SECONDS = 30

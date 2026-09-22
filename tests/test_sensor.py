@@ -2,6 +2,7 @@
 
 from types import SimpleNamespace
 
+from custom_components.mojelektro.const import LAST_PUBLISHED_READING_SENSOR
 from custom_components.mojelektro.sensor import MojElektroSensor
 
 
@@ -28,3 +29,11 @@ def test_measurement_native_value_remains_float():
 
     assert sensor.native_value == 1.25
     assert isinstance(sensor.native_value, float)
+
+
+def test_timestamp_sensor_last_reset_does_not_require_state_class():
+    """Diagnostic timestamps must initialize without a numeric state class."""
+    sensor = _sensor_with_value(LAST_PUBLISHED_READING_SENSOR, None)
+
+    assert sensor.state_class is None
+    assert sensor.last_reset is None
