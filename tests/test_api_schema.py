@@ -3,9 +3,11 @@
 from copy import deepcopy
 
 from scripts.check_api_schema import (
+    OPTIONAL_PATHS,
     PRODUCTION_API_URL,
     REQUIRED_PATHS,
     REQUIRED_SCHEMA_PROPERTIES,
+    optional_contract_warnings,
     validate_spec,
 )
 
@@ -77,3 +79,16 @@ def test_value_type_enum_drift_is_detected():
     problems = validate_spec(spec)
 
     assert any("KOLICINA and STANJE" in problem for problem in problems)
+
+
+def test_optional_endpoint_drift_warns_without_failing_core_contract():
+    """Optional feature drift should stay visible without blocking core release."""
+    spec = make_valid_spec()
+
+    assert validate_spec(spec) == []
+    warnings = optional_contract_warnings(spec)
+
+    assert all(
+        f"Optional operation missing: {method.upper()} {path}" in warnings
+        for path, method in OPTIONAL_PATHS.items()
+    )
