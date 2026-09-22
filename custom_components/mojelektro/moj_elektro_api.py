@@ -83,6 +83,7 @@ class MojElektroApi:
         self._reading_qualities: list[dict[str, Any]] | None = None
         self._reading_quality_descriptions: dict[str, str] = {}
         self.last_reading_metadata: dict[str, dict[str, Any]] = {}
+        self.safe_meter_metadata: dict[str, Any] = {}
 
     @property
     def headers(self) -> dict[str, str]:
@@ -203,7 +204,40 @@ class MojElektroApi:
             raise MojElektroRequestError(
                 "Moj Elektro returned invalid metering-point metadata"
             )
+
+        self.safe_meter_metadata = self._extract_safe_meter_metadata(payload)
         return payload
+
+    @staticmethod
+    def _extract_safe_meter_metadata(payload: dict[str, Any]) -> dict[str, Any]:
+        """Extract technical metadata that is safe to include in diagnostics."""
+        contract = payload.get("pogodbeniPodatki") or {}
+        technical = payload.get("tehnicniPodatki") or {}
+
+        safe = {
+            "stevilo_faz": contract.get("steviloFaz"),
+            "vrsta_omejevalca_toka": contract.get("vrstaOmejevalcaToka"),
+            "jakost_omejevalca_toka": contract.get("jakostOmejevalcaToka"),
+            "prikljucna_moc": contract.get("prikljucnaMoc"),
+            "dovoljena_moc_oddaje": contract.get("dovoljenaMocOddaje"),
+            "instalirana_moc_proizvodnje": contract.get(
+                "instaliranaMocProizvodnje"
+            ),
+            "vir_primarnega_energenta": contract.get(
+                "virPrimarnegaEnergenta"
+            ),
+            "daljinsko_citanje": contract.get("daljinskoCitanje"),
+            "obstoj_15_min_meritve": contract.get("obstoj15MinutneMeritve"),
+            "frekvenca_odbiranja": contract.get("nazivFrekvenceOdbiranja"),
+            "tip_stevca": technical.get("tipStevca"),
+            "leto_izdelave_stevca": technical.get("letoIzdelave"),
+        }
+
+        return {
+            key: value
+            for key, value in safe.items()
+            if value is not None
+        }
 
     async def get_meter_point(self, gsrn: str) -> dict[str, Any]:
         """Return metadata for a GSRN meter point."""
