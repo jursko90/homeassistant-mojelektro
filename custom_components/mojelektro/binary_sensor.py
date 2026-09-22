@@ -20,6 +20,11 @@ from .const import (
 )
 
 
+def is_data_stale(latest, now, stale_after_hours: int) -> bool:
+    """Return whether source data is older than the configured threshold."""
+    return (now - latest).total_seconds() > int(stale_after_hours) * 3600
+
+
 async def async_setup_entry(
     hass: HomeAssistant,
     entry: ConfigEntry,
@@ -86,8 +91,11 @@ class MojElektroDataStaleBinarySensor(CoordinatorEntity, BinarySensorEntity):
         if latest is None:
             return None
 
-        age = dt_util.now() - latest
-        return age.total_seconds() > self.stale_after_hours * 3600
+        return is_data_stale(
+            latest,
+            dt_util.now(),
+            self.stale_after_hours,
+        )
 
     @property
     def extra_state_attributes(self):
