@@ -752,3 +752,52 @@ def test_dynamic_metadata_exists_before_first_reading():
         "unit": "kW",
     }
     assert "reading_p_plus" in api.expected_sensor_names()
+
+
+def test_dynamic_period_parser_supports_common_units():
+    """API period metadata should translate into reset durations."""
+    assert MojElektroApi._period_to_timedelta("15 min") == timedelta(minutes=15)
+    assert MojElektroApi._period_to_timedelta("30m") == timedelta(minutes=30)
+    assert MojElektroApi._period_to_timedelta("1 h") == timedelta(hours=1)
+    assert MojElektroApi._period_to_timedelta("24 h") == timedelta(hours=24)
+    assert MojElektroApi._period_to_timedelta("1 day") == timedelta(days=1)
+    assert MojElektroApi._period_to_timedelta("unknown") is None
+
+
+def test_dynamic_reading_reset_uses_catalogue_period():
+    """Dynamic total readings should reset at timestamp minus API period."""
+    api = MojElektroApi(
+        "token",
+        "meter",
+        4,
+        None,
+        extra_reading_tags=("P+",),
+    )
+    api._tag_by_reading_type = {"dynamic-power-import": "P+"}
+    api._reading_types_by_tag = {
+        "P+": {
+            "oznaka": "P+",
+            "perioda": "30 min",
+            "vrsta": "KOLICINA",
+        }
+    }
+    api.prepare_dynamic_sensor_metadata()
+
+    api.extra_readings_output(
+        [
+            {
+                "readingType": "dynamic-power-import",
+                "intervalReadings": [
+                    {
+                        "timestamp": "2026-09-21T10:30:00+02:00",
+                        "value": "2.75",
+                    }
+                ],
+            }
+        ]
+    )
+
+    assert (
+        api.last_reading_metadata["reading_p_plus"]["last_reset"]
+        == "2026-09-21T10:00:00+02:00"
+    )
