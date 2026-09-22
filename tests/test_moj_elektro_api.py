@@ -801,3 +801,33 @@ def test_dynamic_reading_reset_uses_catalogue_period():
         api.last_reading_metadata["reading_p_plus"]["last_reset"]
         == "2026-09-21T10:00:00+02:00"
     )
+
+
+def test_dynamic_metadata_works_with_current_official_schema_fields():
+    """Advanced readings must not require an undocumented unit field."""
+    api = MojElektroApi(
+        "token",
+        "meter",
+        4,
+        None,
+        extra_reading_tags=("P+",),
+    )
+    api._reading_types_by_tag = {
+        "P+": {
+            "naziv": "Prejeta 15 minutna delovna moč",
+            "oznaka": "P+",
+            "tip": "MOČ",
+            "perioda": "15 min",
+            "opis": "15 minutna delovna moč",
+            "readingType": "dynamic-power",
+            "vrsta": "KOLICINA",
+        }
+    }
+
+    api.prepare_dynamic_sensor_metadata()
+
+    metadata = api.dynamic_sensor_metadata["reading_p_plus"]
+    assert metadata["tag"] == "P+"
+    assert metadata["perioda"] == "15 min"
+    assert metadata["vrsta"] == "KOLICINA"
+    assert metadata["unit"] is None
