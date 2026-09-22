@@ -1468,3 +1468,25 @@ def test_naive_or_invalid_timestamps_are_ignored():
             "value": "3",
         }
     ]
+
+
+def test_source_metadata_timestamp_uses_absolute_dst_order():
+    """Freshness metadata must choose the latest instant, not max ISO text."""
+    api = MojElektroApi("token", "meter", 4, None)
+
+    api._remember_reading_metadata(
+        "test_sensor",
+        {
+            "timestamp": "2026-10-25T02:30:00+02:00",
+            "value": "1",
+        },
+        {
+            "timestamp": "2026-10-25T02:15:00+01:00",
+            "value": "2",
+        },
+    )
+
+    assert (
+        api.last_reading_metadata["test_sensor"]["source_timestamp"]
+        == "2026-10-25T02:15:00+01:00"
+    )
