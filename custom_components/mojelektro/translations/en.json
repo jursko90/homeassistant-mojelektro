@@ -64,6 +64,108 @@
     "sensor": {
       "last_published_reading": {
         "name": "Last published reading"
+      },
+      "interval_input": {
+        "name": "15-minute import"
+      },
+      "interval_output": {
+        "name": "15-minute export"
+      },
+      "daily_input": {
+        "name": "Daily import"
+      },
+      "daily_input_peak": {
+        "name": "Daily import (peak tariff)"
+      },
+      "daily_input_offpeak": {
+        "name": "Daily import (off-peak tariff)"
+      },
+      "daily_output": {
+        "name": "Daily export"
+      },
+      "daily_output_peak": {
+        "name": "Daily export (peak tariff)"
+      },
+      "daily_output_offpeak": {
+        "name": "Daily export (off-peak tariff)"
+      },
+      "monthly_input": {
+        "name": "Monthly import"
+      },
+      "monthly_input_peak": {
+        "name": "Monthly import (peak tariff)"
+      },
+      "monthly_input_offpeak": {
+        "name": "Monthly import (off-peak tariff)"
+      },
+      "monthly_output": {
+        "name": "Monthly export"
+      },
+      "monthly_output_peak": {
+        "name": "Monthly export (peak tariff)"
+      },
+      "monthly_output_offpeak": {
+        "name": "Monthly export (off-peak tariff)"
+      },
+      "total_input": {
+        "name": "Total import"
+      },
+      "total_input_peak": {
+        "name": "Total import (peak tariff)"
+      },
+      "total_input_offpeak": {
+        "name": "Total import (off-peak tariff)"
+      },
+      "total_output": {
+        "name": "Total export"
+      },
+      "total_output_peak": {
+        "name": "Total export (peak tariff)"
+      },
+      "total_output_offpeak": {
+        "name": "Total export (off-peak tariff)"
+      },
+      "daily_input_blok_1": {
+        "name": "Daily import – block 1"
+      },
+      "daily_input_blok_2": {
+        "name": "Daily import – block 2"
+      },
+      "daily_input_blok_3": {
+        "name": "Daily import – block 3"
+      },
+      "daily_input_blok_4": {
+        "name": "Daily import – block 4"
+      },
+      "daily_input_blok_5": {
+        "name": "Daily import – block 5"
+      },
+      "casovni_blok_1": {
+        "name": "Contracted power – block 1"
+      },
+      "casovni_blok_2": {
+        "name": "Contracted power – block 2"
+      },
+      "casovni_blok_3": {
+        "name": "Contracted power – block 3"
+      },
+      "casovni_blok_4": {
+        "name": "Contracted power – block 4"
+      },
+      "casovni_blok_5": {
+        "name": "Contracted power – block 5"
+      },
+      "souporaba_total": {
+        "name": "Sharing requests"
+      },
+      "souporaba_confirmed": {
+        "name": "Confirmed sharing requests"
+      },
+      "souporaba_in_progress": {
+        "name": "Sharing requests in progress"
+      },
+      "souporaba_rejected": {
+        "name": "Rejected sharing requests"
       }
     }
   }
