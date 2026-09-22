@@ -151,7 +151,7 @@ class MojElektroApi:
                     if response.status == 429:
                         retry_after = response.headers.get("Retry-After")
                         suffix = (
-                            f"; retry after {retry_after}s"
+                            f"; Retry-After={retry_after}"
                             if retry_after
                             else ""
                         )
