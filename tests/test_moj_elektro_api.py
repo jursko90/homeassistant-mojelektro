@@ -1636,3 +1636,27 @@ def test_latest_source_timestamp_ignores_naive_values():
 
     assert latest is not None
     assert latest.isoformat() == "2026-10-25T02:15:00+01:00"
+
+
+class MissingContractedPowerStub(MojElektroApi):
+    """Stub a meter that has no OMTO contracted-power metadata."""
+
+    def __init__(self):
+        super().__init__("token", "meter", 4, None)
+        self.site_calls = 0
+
+    async def get_meter_site(self):
+        self.site_calls += 1
+        return {"merilneTocke": []}
+
+
+def test_missing_contracted_power_is_cached_for_the_day():
+    """A successful no-data metadata lookup should not repeat every poll."""
+    api = MissingContractedPowerStub()
+
+    first = asyncio.run(api.get_casovni_blok())
+    second = asyncio.run(api.get_casovni_blok())
+
+    assert first == {}
+    assert second == {}
+    assert api.site_calls == 1
