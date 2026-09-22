@@ -1614,3 +1614,21 @@ def test_validate_token_uses_core_meter_readings_and_accepts_empty_success():
 
     assert asyncio.run(api.validate_token())
     assert api.reading_calls == 1
+
+
+def test_latest_source_timestamp_ignores_naive_values():
+    """Freshness lookup should ignore timestamps without timezone offsets."""
+    api = MojElektroApi("token", "meter", 4, None)
+    api.last_reading_metadata = {
+        "bad": {
+            "source_timestamp": "2026-10-25T02:30:00",
+        },
+        "good": {
+            "source_timestamp": "2026-10-25T02:15:00+01:00",
+        },
+    }
+
+    latest = api.latest_source_timestamp()
+
+    assert latest is not None
+    assert latest.isoformat() == "2026-10-25T02:15:00+01:00"
