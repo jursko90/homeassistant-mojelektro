@@ -41,7 +41,8 @@
           "enable_tariff_blocks": "Enable calculated network tariff-block consumption",
           "enable_contracted_power": "Enable contracted power sensors",
           "enable_total": "Enable cumulative meter registers",
-          "enable_souporaba": "Enable souporaba summary"
+          "enable_souporaba": "Enable souporaba summary",
+          "stale_after_hours": "Warn about stale data after (hours)"
         },
         "data_description": {
           "decimal": "Number of decimal places used for numeric sensor values.",
@@ -50,7 +51,8 @@
           "enable_tariff_blocks": "These sensors are calculated locally from the Slovenian network tariff schedule.",
           "enable_contracted_power": "Reads blocks 1-5 from the official metering-point metadata.",
           "enable_total": "Adds cumulative import/export meter registers suitable for the Home Assistant Energy Dashboard.",
-          "enable_souporaba": "Shows only counts by sharing status; EIMM, GSRN and contact details are not exposed as entity states."
+          "enable_souporaba": "Shows only counts by sharing status; EIMM, GSRN and contact details are not exposed as entity states.",
+          "stale_after_hours": "The diagnostic problem sensor turns on when the newest published reading is older than this threshold. Allowed range: 24–168 hours."
         }
       }
     }
@@ -166,6 +168,11 @@
       },
       "souporaba_rejected": {
         "name": "Rejected sharing requests"
+      }
+    },
+    "binary_sensor": {
+      "data_stale": {
+        "name": "Data stale"
       }
     }
   }
