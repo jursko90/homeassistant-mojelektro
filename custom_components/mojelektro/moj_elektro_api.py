@@ -1065,17 +1065,21 @@ class MojElektroApi:
 
     @staticmethod
     def sensor_key_for_tag(tag: str) -> str:
-        """Create a stable Home Assistant-safe key from a semantic API tag."""
+        """Create a stable collision-resistant key from a semantic API tag."""
+        raw_tag = str(tag).strip()
         encoded = (
-            str(tag)
-            .strip()
+            raw_tag
             .lower()
             .replace("+", "_plus_")
             .replace("-", "_minus_")
         )
         encoded = re.sub(r"[^a-z0-9_]+", "_", encoded)
         encoded = re.sub(r"_+", "_", encoded).strip("_")
-        return f"reading_{encoded or 'unknown'}"
+        digest = hashlib.sha1(
+            raw_tag.encode("utf-8"),
+            usedforsecurity=False,
+        ).hexdigest()[:8]
+        return f"reading_{encoded or 'unknown'}_{digest}"
 
     @staticmethod
     def _period_to_timedelta(period: Any) -> timedelta | None:
