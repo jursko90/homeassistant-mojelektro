@@ -16,11 +16,11 @@ async def async_setup_entry(
     async_add_entities,
 ) -> None:
     """Set up the manual refresh button."""
-    runtime = hass.data[DOMAIN][entry.entry_id]
+    runtime = entry.runtime_data
     async_add_entities(
         [
             MojElektroRefreshButton(
-                runtime["coordinator"],
+                runtime.coordinator,
                 entry.data[CONF_METER_ID],
             )
         ]
