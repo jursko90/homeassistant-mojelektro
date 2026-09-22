@@ -16,6 +16,7 @@ CONF_ENABLE_TOTAL = "enable_total"
 CONF_ENABLE_TARIFF_BLOCKS = "enable_tariff_blocks"
 CONF_ENABLE_CONTRACTED_POWER = "enable_contracted_power"
 CONF_ENABLE_SOUPORABA = "enable_souporaba"
+CONF_STALE_AFTER_HOURS = "stale_after_hours"
 
 DEFAULT_DECIMAL = 4
 DEFAULT_UPDATE_INTERVAL = 15
@@ -26,11 +27,14 @@ DEFAULT_ENABLE_TOTAL = True
 DEFAULT_ENABLE_TARIFF_BLOCKS = True
 DEFAULT_ENABLE_CONTRACTED_POWER = True
 DEFAULT_ENABLE_SOUPORABA = False
+DEFAULT_STALE_AFTER_HOURS = 48
 
 MIN_UPDATE_INTERVAL = 5
 MAX_UPDATE_INTERVAL = 180
 MIN_LOOKBACK_DAYS = 1
 MAX_LOOKBACK_DAYS = 7
+MIN_STALE_AFTER_HOURS = 24
+MAX_STALE_AFTER_HOURS = 168
 
 # Stable Home Assistant sensor keys mapped to the semantic register labels
 # returned by GET /reading-type. The opaque readingType IDs themselves are
