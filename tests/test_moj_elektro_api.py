@@ -719,3 +719,36 @@ def test_invalid_json_is_translated_to_request_error():
         assert False, "Expected MojElektroRequestError"
     except MojElektroRequestError as err:
         assert "invalid JSON" in str(err)
+
+
+def test_dynamic_metadata_exists_before_first_reading():
+    """Selected dynamic entities should have correct metadata even with no data."""
+    api = MojElektroApi(
+        "token",
+        "meter",
+        4,
+        None,
+        extra_reading_tags=("P+",),
+    )
+    api._reading_types_by_tag = {
+        "P+": {
+            "oznaka": "P+",
+            "naziv": "Prejeta 15 minutna delovna moč",
+            "opis": "15 minutna moč, A+, kW",
+            "perioda": "15 min",
+            "vrsta": "KOLICINA",
+            "merilnaEnota": "kW",
+        }
+    }
+
+    api.prepare_dynamic_sensor_metadata()
+
+    assert api.dynamic_sensor_metadata["reading_p_plus"] == {
+        "tag": "P+",
+        "naziv": "Prejeta 15 minutna delovna moč",
+        "opis": "15 minutna moč, A+, kW",
+        "perioda": "15 min",
+        "vrsta": "KOLICINA",
+        "unit": "kW",
+    }
+    assert "reading_p_plus" in api.expected_sensor_names()
