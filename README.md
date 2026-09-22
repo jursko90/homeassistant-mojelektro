@@ -142,7 +142,7 @@ No `configuration.yaml` entry is required.
 - [x] safer partial/malformed API-response handling
 - [x] add automated unit tests for API parsing and config flow
 - [x] validate Python and Hassfest workflows on the fork
-- [ ] add the required GitHub repository topics for a fully green HACS check
+- [x] add the required GitHub repository topics and pass HACS validation
 
 ### 0.3.x — Moj Elektro API refresh
 
