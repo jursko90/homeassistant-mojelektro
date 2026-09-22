@@ -54,6 +54,14 @@ from .moj_elektro_api import (
 _LOGGER = logging.getLogger(__name__)
 
 
+def _meter_id_already_configured(entries, meter_id: str) -> bool:
+    """Return whether any existing entry already targets this EIMM."""
+    return any(
+        entry.data.get(CONF_METER_ID) == meter_id
+        for entry in entries
+    )
+
+
 async def async_validate_connection(
     hass,
     token: str,
@@ -106,9 +114,9 @@ class MojeElektroFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             if error is not None:
                 errors["base"] = error
             else:
-                if any(
-                    entry.data.get(CONF_METER_ID) == meter_id
-                    for entry in self._async_current_entries()
+                if _meter_id_already_configured(
+                    self._async_current_entries(),
+                    meter_id,
                 ):
                     return self.async_abort(reason="already_configured")
 
