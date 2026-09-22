@@ -1,0 +1,38 @@
+name: Feature request
+description: Suggest an improvement for the maintained Moj Elektro integration
+title: "[Feature]: "
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please describe the user problem first, then the proposed solution.
+        Do not include API tokens, EIMM/GSRN values, addresses, or personal data.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem / use case
+      description: What are you trying to achieve in Home Assistant?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+      description: What should the integration do?
+    validations:
+      required: true
+
+  - type: textarea
+    id: api
+    attributes:
+      label: Related Moj Elektro API endpoint or field
+      description: If known, mention the public endpoint/schema name only.
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
