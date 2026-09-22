@@ -78,3 +78,8 @@ SOUPORABA_SENSORS = {
 }
 
 LAST_PUBLISHED_READING_SENSOR = "last_published_reading"
+
+SENSOR_TRANSLATION_KEYS = {
+    "15min_input": "interval_input",
+    "15min_output": "interval_output",
+}
