@@ -1227,7 +1227,7 @@ class MojElektroApi:
                 counts[status] += 1
 
         return {
-            sensor_name: float(counts[key])
+            sensor_name: counts[key]
             for key, sensor_name in SOUPORABA_SENSORS.items()
         }
 
