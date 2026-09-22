@@ -492,6 +492,7 @@ class MojElektroApi:
         fifteen_data: list[dict[str, Any]] = []
         daily_data: list[dict[str, Any]] = []
         extra_data: list[dict[str, Any]] = []
+        core_access_verified = False
 
         requested_interval_tags: set[str] = set()
         if self.enable_15min:
@@ -516,11 +517,13 @@ class MojElektroApi:
                 start_date=today - timedelta(days=self.lookback_days),
                 end_date=today,
             )
+            core_access_verified = True
             if extra_tags:
                 extra_data = fifteen_data
 
         if self.enable_daily or self.enable_total:
             daily_data = await self._get_daily_readings(today)
+            core_access_verified = True
 
         if self.extra_reading_tags:
             self.prepare_dynamic_sensor_metadata()
@@ -528,8 +531,14 @@ class MojElektroApi:
         if fifteen_data or daily_data or extra_data:
             try:
                 await self.get_reading_qualities()
-            except MojElektroAuthError:
-                raise
+            except MojElektroAuthError as err:
+                if not core_access_verified:
+                    raise
+                _LOGGER.warning(
+                    "Reading-quality endpoint denied access after "
+                    "meter-readings succeeded: %s",
+                    err,
+                )
             except MojElektroError as err:
                 _LOGGER.warning(
                     "Unable to load Moj Elektro reading-quality descriptions: %s",
@@ -571,7 +580,16 @@ class MojElektroApi:
             sensor_return.update(self.consumption_by_block(fifteen_data))
 
         if self.enable_contracted_power:
-            sensor_return.update(await self.get_casovni_blok())
+            try:
+                sensor_return.update(await self.get_casovni_blok())
+            except MojElektroAuthError as err:
+                if not core_access_verified:
+                    raise
+                _LOGGER.warning(
+                    "Contracted-power endpoint denied access after "
+                    "meter-readings succeeded: %s",
+                    err,
+                )
 
         if self.enable_souporaba:
             try:
@@ -580,8 +598,14 @@ class MojElektroApi:
                         await self.get_souporaba()
                     )
                 )
-            except MojElektroAuthError:
-                raise
+            except MojElektroAuthError as err:
+                if not core_access_verified:
+                    raise
+                _LOGGER.warning(
+                    "Souporaba endpoint denied access after "
+                    "meter-readings succeeded: %s",
+                    err,
+                )
             except MojElektroError as err:
                 _LOGGER.warning(
                     "Unable to update Moj Elektro souporaba summary: %s",
