@@ -337,16 +337,15 @@ class MojElektroApi:
             )
         return [item for item in payload if isinstance(item, dict)]
 
-    async def get_meter_readings(
+    def _build_meter_reading_params(
         self,
-        tags: list[str] | tuple[str, ...] | set[str],
+        tags,
         *,
         start_date: date,
         end_date: date,
-    ) -> list[dict[str, Any]]:
-        """Fetch readings for semantic register labels discovered at runtime."""
-        reading_types = await self.get_reading_types()
-
+        reading_types: dict[str, dict[str, Any]],
+    ) -> tuple[list[tuple[str, str]], list[str]]:
+        """Build query parameters from semantic tags and a live catalogue."""
         params: list[tuple[str, str]] = [
             ("usagePoint", self.meter_id),
             ("startTime", start_date.isoformat()),
@@ -356,11 +355,34 @@ class MojElektroApi:
         missing_tags: list[str] = []
         for tag in tags:
             definition = reading_types.get(tag)
-            reading_type = definition.get("readingType") if definition else None
+            reading_type = (
+                definition.get("readingType")
+                if definition
+                else None
+            )
             if not reading_type:
-                missing_tags.append(tag)
+                missing_tags.append(str(tag))
                 continue
             params.append(("option", f"ReadingType={reading_type}"))
+
+        return params, missing_tags
+
+    async def get_meter_readings(
+        self,
+        tags: list[str] | tuple[str, ...] | set[str],
+        *,
+        start_date: date,
+        end_date: date,
+    ) -> list[dict[str, Any]]:
+        """Fetch readings for semantic register labels discovered at runtime."""
+        catalogue_was_cached = self._reading_types_by_tag is not None
+        reading_types = await self.get_reading_types()
+        params, missing_tags = self._build_meter_reading_params(
+            tags,
+            start_date=start_date,
+            end_date=end_date,
+            reading_types=reading_types,
+        )
 
         if missing_tags:
             _LOGGER.warning(
@@ -371,7 +393,41 @@ class MojElektroApi:
         if len(params) == 3:
             return []
 
-        payload = await self._request_json("/meter-readings", params=params)
+        try:
+            payload = await self._request_json(
+                "/meter-readings",
+                params=params,
+            )
+        except MojElektroRequestError:
+            if not catalogue_was_cached:
+                raise
+
+            _LOGGER.info(
+                "Meter-readings request was rejected; refreshing the "
+                "Moj Elektro reading-type catalogue and retrying once"
+            )
+            reading_types = await self.get_reading_types(
+                force_refresh=True
+            )
+            params, missing_tags = self._build_meter_reading_params(
+                tags,
+                start_date=start_date,
+                end_date=end_date,
+                reading_types=reading_types,
+            )
+            if missing_tags:
+                _LOGGER.warning(
+                    "Moj Elektro no longer exposes requested reading "
+                    "types after catalogue refresh: %s",
+                    ", ".join(sorted(missing_tags)),
+                )
+            if len(params) == 3:
+                return []
+            payload = await self._request_json(
+                "/meter-readings",
+                params=params,
+            )
+
         if not isinstance(payload, dict):
             raise MojElektroRequestError(
                 "Moj Elektro returned an invalid meter-readings payload"
