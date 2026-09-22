@@ -792,6 +792,8 @@ class MojElektroApi:
                 )
             except ValueError:
                 continue
+            if parsed.tzinfo is None:
+                continue
 
             if latest is None or parsed > latest:
                 latest = parsed
