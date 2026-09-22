@@ -1190,3 +1190,60 @@ def test_meter_message_created_keeps_newest_server_timestamp():
     assert first.isoformat() == "2026-09-22T06:30:00+00:00"
     assert api.last_meter_message_created == first
     assert api.last_meter_response_at is not None
+
+
+def test_non_finite_interval_values_are_ignored():
+    """NaN/Infinity must never be exposed as Home Assistant sensor states."""
+    api = MojElektroApi("token", "meter", 4, None)
+    api._tag_by_reading_type = {
+        "a-plus": "A+",
+        "a-minus": "A-",
+    }
+
+    result = api.sensors_output(
+        [
+            {
+                "readingType": "a-plus",
+                "intervalReadings": [
+                    {
+                        "timestamp": "2026-09-21T10:15:00+02:00",
+                        "value": "NaN",
+                    }
+                ],
+            },
+            {
+                "readingType": "a-minus",
+                "intervalReadings": [
+                    {
+                        "timestamp": "2026-09-21T10:15:00+02:00",
+                        "value": "Infinity",
+                    }
+                ],
+            },
+        ],
+        FIFTEEN_MINUTE_SENSORS,
+        interval=True,
+    )
+
+    assert result == {}
+
+
+def test_non_finite_contracted_power_becomes_unavailable():
+    """Malformed static power values should be represented as unavailable."""
+    result = MojElektroApi._extract_casovni_bloki(
+        [
+            {
+                "datumOd": "2020-01-01T00:00:00+01:00",
+                "datumDo": "2035-12-31T23:59:59+01:00",
+                "veljavnost": True,
+                "casovniBlok1": "NaN",
+                "casovniBlok2": "5.2",
+                "casovniBlok3": "5.3",
+                "casovniBlok4": "5.4",
+                "casovniBlok5": "5.5",
+            }
+        ]
+    )
+
+    assert result["casovni_blok_1"] is None
+    assert result["casovni_blok_2"] == 5.2
