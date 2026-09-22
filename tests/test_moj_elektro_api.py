@@ -1247,3 +1247,56 @@ def test_non_finite_contracted_power_becomes_unavailable():
 
     assert result["casovni_blok_1"] is None
     assert result["casovni_blok_2"] == 5.2
+
+
+class OptionalAuthStub(MojElektroApi):
+    """Exercise optional endpoint authorization behavior."""
+
+    def __init__(self, *, core_enabled):
+        super().__init__(
+            "token",
+            "meter",
+            4,
+            None,
+            enable_15min=core_enabled,
+            enable_daily=False,
+            enable_total=False,
+            enable_tariff_blocks=False,
+            enable_contracted_power=True,
+            enable_souporaba=False,
+        )
+        self._reading_types_by_tag = {
+            "A+": {"readingType": "a-plus"},
+            "A-": {"readingType": "a-minus"},
+        }
+        self._tag_by_reading_type = {
+            "a-plus": "A+",
+            "a-minus": "A-",
+        }
+
+    async def get_meter_readings(self, tags, *, start_date, end_date):
+        return []
+
+    async def get_casovni_blok(self):
+        raise MojElektroAuthError("metadata access denied")
+
+
+def test_optional_auth_failure_is_nonfatal_after_core_access_succeeds():
+    """Optional 403 must not force reauth after meter-readings already worked."""
+    api = OptionalAuthStub(core_enabled=True)
+
+    result = asyncio.run(api.getData())
+
+    assert "15min_input" in result
+    assert result["casovni_blok_1"] is None
+
+
+def test_optional_auth_failure_propagates_without_core_verification():
+    """If only the optional endpoint is used, its auth error must still reauth."""
+    api = OptionalAuthStub(core_enabled=False)
+
+    try:
+        asyncio.run(api.getData())
+        assert False, "Expected MojElektroAuthError"
+    except MojElektroAuthError:
+        pass
