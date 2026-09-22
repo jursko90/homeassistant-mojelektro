@@ -792,30 +792,49 @@ class MojElektroApi:
             except (KeyError, TypeError, ValueError):
                 continue
 
-            sensor_output[sensor] = round(
-                latest_value - previous_value,
-                self.decimal,
-            )
+            daily_delta = latest_value - previous_value
+            monthly_delta = latest_value - month_first_value
             monthly_sensor = sensor.replace("daily_", "monthly_", 1)
-            sensor_output[monthly_sensor] = round(
-                latest_value - month_first_value,
-                self.decimal,
-            )
 
-            self._remember_reading_metadata(
-                sensor,
-                readings[-2],
-                readings[-1],
-                last_reset=str(readings[-2].get("timestamp") or "") or None,
-            )
-            self._remember_reading_metadata(
-                monthly_sensor,
-                month_readings[0],
-                readings[-1],
-                last_reset=str(
-                    month_readings[0].get("timestamp") or ""
-                ) or None,
-            )
+            if daily_delta >= 0:
+                sensor_output[sensor] = round(
+                    daily_delta,
+                    self.decimal,
+                )
+                self._remember_reading_metadata(
+                    sensor,
+                    readings[-2],
+                    readings[-1],
+                    last_reset=str(
+                        readings[-2].get("timestamp") or ""
+                    ) or None,
+                )
+            else:
+                _LOGGER.warning(
+                    "Skipping negative daily delta for %s; "
+                    "meter register may have reset or been replaced",
+                    sensor,
+                )
+
+            if monthly_delta >= 0:
+                sensor_output[monthly_sensor] = round(
+                    monthly_delta,
+                    self.decimal,
+                )
+                self._remember_reading_metadata(
+                    monthly_sensor,
+                    month_readings[0],
+                    readings[-1],
+                    last_reset=str(
+                        month_readings[0].get("timestamp") or ""
+                    ) or None,
+                )
+            else:
+                _LOGGER.warning(
+                    "Skipping negative monthly delta for %s; "
+                    "meter register may have reset or been replaced",
+                    monthly_sensor,
+                )
 
         return sensor_output
 
