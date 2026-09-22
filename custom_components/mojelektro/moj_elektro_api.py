@@ -898,6 +898,8 @@ class MojElektroApi:
                 "opis": definition.get("opis"),
                 "perioda": definition.get("perioda"),
                 "vrsta": definition.get("vrsta"),
+                # The current official schema does not define a unit field.
+                # Keep this optional for forward compatibility only.
                 "unit": definition.get("merilnaEnota"),
             }
 
