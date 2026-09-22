@@ -64,6 +64,108 @@
     "sensor": {
       "last_published_reading": {
         "name": "Zadnja objavljena meritev"
+      },
+      "interval_input": {
+        "name": "15-minutni prevzem"
+      },
+      "interval_output": {
+        "name": "15-minutna oddaja"
+      },
+      "daily_input": {
+        "name": "Dnevni prevzem"
+      },
+      "daily_input_peak": {
+        "name": "Dnevni prevzem (VT)"
+      },
+      "daily_input_offpeak": {
+        "name": "Dnevni prevzem (MT)"
+      },
+      "daily_output": {
+        "name": "Dnevna oddaja"
+      },
+      "daily_output_peak": {
+        "name": "Dnevna oddaja (VT)"
+      },
+      "daily_output_offpeak": {
+        "name": "Dnevna oddaja (MT)"
+      },
+      "monthly_input": {
+        "name": "Mesečni prevzem"
+      },
+      "monthly_input_peak": {
+        "name": "Mesečni prevzem (VT)"
+      },
+      "monthly_input_offpeak": {
+        "name": "Mesečni prevzem (MT)"
+      },
+      "monthly_output": {
+        "name": "Mesečna oddaja"
+      },
+      "monthly_output_peak": {
+        "name": "Mesečna oddaja (VT)"
+      },
+      "monthly_output_offpeak": {
+        "name": "Mesečna oddaja (MT)"
+      },
+      "total_input": {
+        "name": "Skupno stanje prevzema"
+      },
+      "total_input_peak": {
+        "name": "Skupno stanje prevzema (VT)"
+      },
+      "total_input_offpeak": {
+        "name": "Skupno stanje prevzema (MT)"
+      },
+      "total_output": {
+        "name": "Skupno stanje oddaje"
+      },
+      "total_output_peak": {
+        "name": "Skupno stanje oddaje (VT)"
+      },
+      "total_output_offpeak": {
+        "name": "Skupno stanje oddaje (MT)"
+      },
+      "daily_input_blok_1": {
+        "name": "Dnevni prevzem – blok 1"
+      },
+      "daily_input_blok_2": {
+        "name": "Dnevni prevzem – blok 2"
+      },
+      "daily_input_blok_3": {
+        "name": "Dnevni prevzem – blok 3"
+      },
+      "daily_input_blok_4": {
+        "name": "Dnevni prevzem – blok 4"
+      },
+      "daily_input_blok_5": {
+        "name": "Dnevni prevzem – blok 5"
+      },
+      "casovni_blok_1": {
+        "name": "Dogovorjena moč – blok 1"
+      },
+      "casovni_blok_2": {
+        "name": "Dogovorjena moč – blok 2"
+      },
+      "casovni_blok_3": {
+        "name": "Dogovorjena moč – blok 3"
+      },
+      "casovni_blok_4": {
+        "name": "Dogovorjena moč – blok 4"
+      },
+      "casovni_blok_5": {
+        "name": "Dogovorjena moč – blok 5"
+      },
+      "souporaba_total": {
+        "name": "Zahteve za souporabo"
+      },
+      "souporaba_confirmed": {
+        "name": "Potrjene souporabe"
+      },
+      "souporaba_in_progress": {
+        "name": "Souporabe v izvajanju"
+      },
+      "souporaba_rejected": {
+        "name": "Zavrnjene souporabe"
       }
     }
   }
