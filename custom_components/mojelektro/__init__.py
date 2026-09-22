@@ -1,6 +1,5 @@
 """Moj Elektro integration."""
 
-import json
 import re
 
 from homeassistant.config_entries import ConfigEntry
@@ -10,11 +9,14 @@ from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import entity_registry as er
 
 from .const import (
-    CONF_METER_ID,
+    CONTRACTED_POWER_SENSORS,
+    DAILY_SENSORS,
     DOMAIN,
-    SETUP_TAG_15_ARRAY,
-    SETUP_TAG_ARRAY,
-    SETUP_TAG_BLOCKS_ARRAY,
+    FIFTEEN_MINUTE_SENSORS,
+    TARIFF_BLOCK_SENSORS,
+    SOUPORABA_SENSORS,
+    TOTAL_REGISTER_SENSORS,
+    CONF_METER_ID,
 )
 
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
@@ -22,20 +24,17 @@ PLATFORMS = [Platform.SENSOR]
 
 
 def _expected_sensor_names() -> list[str]:
-    """Return all sensor keys created by this integration."""
-    names: list[str] = []
+    """Return all sensor keys ever created by this integration."""
+    names = list(FIFTEEN_MINUTE_SENSORS.values())
 
-    for item in json.loads(SETUP_TAG_15_ARRAY):
-        names.append(item["sensor"])
+    for sensor in DAILY_SENSORS.values():
+        names.append(sensor)
+        names.append(sensor.replace("daily_", "monthly_", 1))
 
-    for item in json.loads(SETUP_TAG_ARRAY):
-        names.append(item["sensor"])
-        names.append(item["sensor"].replace("daily_", "monthly_", 1))
-
-    for item in json.loads(SETUP_TAG_BLOCKS_ARRAY):
-        names.append(item["sensor"])
-
-    names.extend(f"casovni_blok_{block_number}" for block_number in range(1, 6))
+    names.extend(TARIFF_BLOCK_SENSORS.values())
+    names.extend(TOTAL_REGISTER_SENSORS.values())
+    names.extend(CONTRACTED_POWER_SENSORS)
+    names.extend(SOUPORABA_SENSORS.values())
     return names
 
 
@@ -45,7 +44,10 @@ def _migrate_legacy_sensor_unique_ids(
     """Migrate legacy suffixed unique IDs without changing entity IDs."""
     meter_id = entry.data[CONF_METER_ID]
     registry = er.async_get(hass)
-    registry_entries = er.async_entries_for_config_entry(registry, entry.entry_id)
+    registry_entries = er.async_entries_for_config_entry(
+        registry,
+        entry.entry_id,
+    )
 
     for measurement_name in _expected_sensor_names():
         desired_unique_id = (
@@ -92,7 +94,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             and existing_entry.data.get(CONF_METER_ID) == meter_id
         ]
         if not duplicate_entries:
-            hass.config_entries.async_update_entry(entry, unique_id=meter_id)
+            hass.config_entries.async_update_entry(
+                entry,
+                unique_id=meter_id,
+            )
 
     _migrate_legacy_sensor_unique_ids(hass, entry)
 
@@ -102,4 +107,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a Moj Elektro config entry."""
-    return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    unload_ok = await hass.config_entries.async_unload_platforms(
+        entry,
+        PLATFORMS,
+    )
+    if unload_ok:
+        domain_data = hass.data.get(DOMAIN, {})
+        domain_data.pop(entry.entry_id, None)
+        if not domain_data:
+            hass.data.pop(DOMAIN, None)
+    return unload_ok

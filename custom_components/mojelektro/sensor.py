@@ -1,6 +1,6 @@
 """Sensor platform for the Moj Elektro integration."""
 
-from datetime import timedelta
+from datetime import datetime, timedelta
 import logging
 
 from homeassistant.components.sensor import (
@@ -20,7 +20,30 @@ from homeassistant.helpers.update_coordinator import (
     UpdateFailed,
 )
 
-from .const import CONF_DECIMAL, CONF_METER_ID, CONF_TOKEN, DOMAIN, VERSION
+from .const import (
+    CONF_DECIMAL,
+    CONF_ENABLE_15MIN,
+    CONF_ENABLE_CONTRACTED_POWER,
+    CONF_ENABLE_DAILY,
+    CONF_ENABLE_TOTAL,
+    CONF_ENABLE_TARIFF_BLOCKS,
+    CONF_ENABLE_SOUPORABA,
+    CONF_LOOKBACK_DAYS,
+    CONF_METER_ID,
+    CONF_TOKEN,
+    CONF_UPDATE_INTERVAL,
+    DEFAULT_DECIMAL,
+    DEFAULT_ENABLE_15MIN,
+    DEFAULT_ENABLE_CONTRACTED_POWER,
+    DEFAULT_ENABLE_DAILY,
+    DEFAULT_ENABLE_TOTAL,
+    DEFAULT_ENABLE_TARIFF_BLOCKS,
+    DEFAULT_ENABLE_SOUPORABA,
+    DEFAULT_LOOKBACK_DAYS,
+    DEFAULT_UPDATE_INTERVAL,
+    DOMAIN,
+    VERSION,
+)
 from .moj_elektro_api import (
     MojElektroApi,
     MojElektroAuthError,
@@ -36,34 +59,85 @@ async def async_setup_entry(
     """Set up Moj Elektro sensors from a config entry."""
     token = entry.data[CONF_TOKEN]
     meter_id = entry.data[CONF_METER_ID]
-    decimal = entry.data.get(CONF_DECIMAL)
-    session = async_get_clientsession(hass)
+    options = entry.options
 
-    api = MojElektroApi(token, meter_id, decimal, session)
+    decimal = options.get(
+        CONF_DECIMAL,
+        entry.data.get(CONF_DECIMAL, DEFAULT_DECIMAL),
+    )
+    update_interval_minutes = options.get(
+        CONF_UPDATE_INTERVAL,
+        DEFAULT_UPDATE_INTERVAL,
+    )
+
+    session = async_get_clientsession(hass)
+    api = MojElektroApi(
+        token,
+        meter_id,
+        decimal,
+        session,
+        lookback_days=options.get(
+            CONF_LOOKBACK_DAYS,
+            DEFAULT_LOOKBACK_DAYS,
+        ),
+        enable_15min=options.get(
+            CONF_ENABLE_15MIN,
+            DEFAULT_ENABLE_15MIN,
+        ),
+        enable_daily=options.get(
+            CONF_ENABLE_DAILY,
+            DEFAULT_ENABLE_DAILY,
+        ),
+        enable_total=options.get(
+            CONF_ENABLE_TOTAL,
+            DEFAULT_ENABLE_TOTAL,
+        ),
+        enable_tariff_blocks=options.get(
+            CONF_ENABLE_TARIFF_BLOCKS,
+            DEFAULT_ENABLE_TARIFF_BLOCKS,
+        ),
+        enable_contracted_power=options.get(
+            CONF_ENABLE_CONTRACTED_POWER,
+            DEFAULT_ENABLE_CONTRACTED_POWER,
+        ),
+        enable_souporaba=options.get(
+            CONF_ENABLE_SOUPORABA,
+            DEFAULT_ENABLE_SOUPORABA,
+        ),
+    )
 
     async def async_update_data():
         """Fetch data and translate API errors to Home Assistant errors."""
         try:
             return await api.getData()
         except MojElektroAuthError as err:
-            raise ConfigEntryAuthFailed("Moj Elektro authentication failed") from err
+            raise ConfigEntryAuthFailed(
+                "Moj Elektro authentication failed"
+            ) from err
         except MojElektroError as err:
             raise UpdateFailed(str(err)) from err
         except Exception as err:
-            raise UpdateFailed(f"Unexpected Moj Elektro update error: {err}") from err
+            raise UpdateFailed(
+                f"Unexpected Moj Elektro update error: {err}"
+            ) from err
 
     coordinator = DataUpdateCoordinator(
         hass,
         _LOGGER,
         name="mojelektro_sensor",
         update_method=async_update_data,
-        update_interval=timedelta(seconds=30),
+        update_interval=timedelta(minutes=update_interval_minutes),
     )
 
     await coordinator.async_config_entry_first_refresh()
 
+    hass.data.setdefault(DOMAIN, {})[entry.entry_id] = {
+        "api": api,
+        "coordinator": coordinator,
+    }
+
     sensors = [
-        MojElektroSensor(coordinator, measurement, meter_id)
+        MojElektroSensor(coordinator, measurement, meter_id, api)
         for measurement in coordinator.data
     ]
     async_add_entities(sensors)
@@ -72,15 +146,21 @@ async def async_setup_entry(
 class MojElektroSensor(CoordinatorEntity, SensorEntity):
     """Representation of a Moj Elektro sensor."""
 
-    def __init__(self, coordinator, measurement_name: str, meter_id: str) -> None:
+    def __init__(
+        self,
+        coordinator,
+        measurement_name: str,
+        meter_id: str,
+        api: MojElektroApi,
+    ) -> None:
         """Initialize the sensor."""
         super().__init__(coordinator)
 
         self.meter_id = meter_id
         self.measurement_name = measurement_name
+        self.api = api
         self._last_known_state = None
 
-        # Preserve the historic default unique-id format, but make it deterministic.
         self._attr_unique_id = (
             f"{meter_id}-sensor.{DOMAIN}_{measurement_name.lower()}"
         )
@@ -89,11 +169,18 @@ class MojElektroSensor(CoordinatorEntity, SensorEntity):
         if measurement_name.startswith("casovni_blok"):
             self._attr_native_unit_of_measurement = UnitOfPower.KILO_WATT
             self._attr_device_class = SensorDeviceClass.POWER
+            self._attr_state_class = SensorStateClass.MEASUREMENT
             self._attr_icon = "mdi:flash"
+        elif measurement_name.startswith("souporaba_"):
+            self._attr_state_class = SensorStateClass.MEASUREMENT
+            self._attr_icon = "mdi:account-switch"
         else:
             self._attr_native_unit_of_measurement = UnitOfEnergy.KILO_WATT_HOUR
             self._attr_device_class = SensorDeviceClass.ENERGY
-            self._attr_state_class = SensorStateClass.TOTAL_INCREASING
+            if measurement_name.startswith(("total_", "monthly_")):
+                self._attr_state_class = SensorStateClass.TOTAL_INCREASING
+            else:
+                self._attr_state_class = SensorStateClass.TOTAL
             self._attr_icon = "mdi:transmission-tower"
 
     @property
@@ -103,11 +190,31 @@ class MojElektroSensor(CoordinatorEntity, SensorEntity):
             "identifiers": {(DOMAIN, self.meter_id)},
             "name": "Moj Elektro",
             "manufacturer": "Moj Elektro",
-            # Home Assistant requires model to be a string, not a set.
             "model": self.meter_id,
             "sw_version": VERSION,
             "entry_type": DeviceEntryType.SERVICE,
         }
+
+    @property
+    def last_reset(self):
+        """Return the reset point for interval/daily total sensors."""
+        if self._attr_state_class != SensorStateClass.TOTAL:
+            return None
+
+        metadata = self.api.last_reading_metadata.get(
+            self.measurement_name,
+            {},
+        )
+        raw_value = metadata.get("last_reset")
+        if not raw_value:
+            return None
+
+        try:
+            return datetime.fromisoformat(
+                str(raw_value).replace("Z", "+00:00")
+            )
+        except ValueError:
+            return None
 
     @property
     def native_value(self):
@@ -119,11 +226,11 @@ class MojElektroSensor(CoordinatorEntity, SensorEntity):
                 return self._last_known_state
             except (TypeError, ValueError):
                 _LOGGER.debug(
-                    "Invalid value for %s: %r", self.measurement_name, data
+                    "Invalid value for %s: %r",
+                    self.measurement_name,
+                    data,
                 )
 
-        # Contracted powers are configuration-like values. Keep the last known
-        # value if that auxiliary API endpoint is temporarily unavailable.
         if self.measurement_name.startswith("casovni_blok"):
             return self._last_known_state
 

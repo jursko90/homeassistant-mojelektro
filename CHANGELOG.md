@@ -1,5 +1,46 @@
 # Changelog
 
+
+## [0.3.0] - Unreleased
+
+### API refresh
+
+- remove the hard-coded Moj Elektro `readingType` identifier catalogue
+- discover reading types dynamically from the official `GET /reading-type` endpoint
+- use structured query parameters instead of hand-built meter-reading URLs
+- add reusable API methods for `/reading-qualities`, `/merilno-mesto`, `/merilna-tocka` and `/souporaba`
+- use the newest actually published 15-minute reading instead of indexing by the current wall-clock quarter hour
+
+### Home Assistant configuration
+
+- keep connection credentials (token and EIMM) in config-entry data
+- move runtime behavior to Home Assistant Configure/Options
+- add configurable decimal precision
+- add configurable polling interval
+- add configurable 15-minute lookback window
+- add switches for 15-minute, daily/monthly, tariff-block and contracted-power sensor groups
+- add Slovenian config/options translations
+- automatically reload the integration after option changes using Home Assistant's current OptionsFlowWithReload pattern
+
+### Data quality, statistics and diagnostics
+
+- load the official `/reading-qualities` catalogue and retain quality flags/descriptions as non-sensitive diagnostics metadata
+- add cumulative import/export meter-register sensors for Home Assistant Energy Dashboard use
+- correct sensor state classes: interval/daily values use reset-aware totals, cumulative/monthly values use increasing totals, and contracted power uses measurement semantics
+- calculate tariff-block totals from the latest complete 15-minute day only (92/96/100 intervals), avoiding partial overnight data and multi-day double counting
+- correct the Slovenian network tariff hour boundaries against the current Energy Agency act and isolate the tariff/holiday rules in a dedicated tested module
+- use the Home Assistant timezone for date boundaries instead of the host/container timezone
+- add privacy-safe diagnostics that redact token and EIMM and never include measurement values
+- add opt-in privacy-safe `souporaba` status-count sensors while keeping EIMM/GSRN/contact details out of entity states
+- add API methods for souporaba detail and network-charge overview without exposing those sensitive payloads by default
+
+### Tests
+
+- add regression tests for runtime reading-type discovery
+- verify meter-reading requests use IDs returned by the official catalogue
+- verify empty API responses never synthesize false zero energy values
+- verify 15-minute sensors select the newest published reading
+
 All notable changes to this maintained fork are documented here.
 
 This project is a maintained fork of [frlequ/homeassistant-mojelektro](https://github.com/frlequ/homeassistant-mojelektro). Upstream authorship and the original MIT license are preserved.

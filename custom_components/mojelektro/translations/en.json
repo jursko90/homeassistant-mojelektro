@@ -3,14 +3,10 @@
     "step": {
       "user": {
         "title": "Connect to Moj Elektro API",
-        "description": "Enter your credentials to connect to Moj Elektro API.",
+        "description": "Enter your Moj Elektro API token and EIMM. Runtime behavior can be changed later from Configure.",
         "data": {
           "token": "Token",
-          "meter_id": "Meter ID (EIMM)",
-          "decimal": "Decimal places for sensors."
-        },
-        "data_description": {
-          "decimal": "Leave empty for default (4) or enter decimal places for energy sensors (0-10)."
+          "meter_id": "Meter ID (EIMM)"
         }
       },
       "reauth_confirm": {
@@ -22,13 +18,41 @@
       }
     },
     "error": {
-      "cannot_connect": "Failed to connect to the service, please check your credentials.",
+      "cannot_connect": "Failed to connect to the service.",
       "invalid_auth": "Invalid API token or meter ID (EIMM).",
       "unknown": "An unknown error occurred."
     },
     "abort": {
-      "already_configured": "This device is already configured.",
+      "already_configured": "This metering point is already configured.",
       "reauth_successful": "Re-authentication was successful."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Moj Elektro settings",
+        "description": "Choose how often Moj Elektro is queried and which sensor groups are enabled.",
+        "data": {
+          "decimal": "Decimal places",
+          "update_interval_minutes": "Update interval (minutes)",
+          "lookback_days": "15-minute lookback window (days)",
+          "enable_15min": "Enable latest 15-minute readings",
+          "enable_daily": "Enable daily and monthly readings",
+          "enable_tariff_blocks": "Enable calculated network tariff-block consumption",
+          "enable_contracted_power": "Enable contracted power sensors",
+          "enable_total": "Enable cumulative meter registers",
+          "enable_souporaba": "Enable souporaba summary"
+        },
+        "data_description": {
+          "decimal": "Number of decimal places used for numeric sensor values.",
+          "update_interval_minutes": "How often Home Assistant queries Moj Elektro. The upstream data is delayed, so very short intervals are usually unnecessary.",
+          "lookback_days": "How many days are queried when looking for the newest published 15-minute reading.",
+          "enable_tariff_blocks": "These sensors are calculated locally from the Slovenian network tariff schedule.",
+          "enable_contracted_power": "Reads blocks 1-5 from the official metering-point metadata.",
+          "enable_total": "Adds cumulative import/export meter registers suitable for the Home Assistant Energy Dashboard.",
+          "enable_souporaba": "Shows only counts by sharing status; EIMM, GSRN and contact details are not exposed as entity states."
+        }
+      }
     }
   }
 }
