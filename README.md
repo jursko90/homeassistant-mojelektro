@@ -145,6 +145,8 @@ No `configuration.yaml` entry is required.
 
 ### 0.3.x — Moj Elektro API refresh
 
+> Development baseline for 0.3.0: **Home Assistant 2026.9+**. The stable 0.2.7 release keeps its existing baseline until 0.3.0 is released.
+
 - [x] use official `/reading-type` instead of maintaining opaque reading-type IDs manually
 - [x] use `/reading-qualities` to expose quality flags/descriptions without blindly rejecting flagged readings
 - [x] add privacy-safe opt-in `/souporaba` status summaries
