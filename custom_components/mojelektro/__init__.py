@@ -1,27 +1,57 @@
 """Moj Elektro integration."""
 
+from datetime import timedelta
+import logging
 import re
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .const import (
+    CONF_DECIMAL,
+    CONF_ENABLE_15MIN,
+    CONF_ENABLE_CONTRACTED_POWER,
+    CONF_ENABLE_DAILY,
+    CONF_ENABLE_SOUPORABA,
+    CONF_ENABLE_TARIFF_BLOCKS,
+    CONF_ENABLE_TOTAL,
+    CONF_LOOKBACK_DAYS,
+    CONF_METER_ID,
+    CONF_TOKEN,
+    CONF_UPDATE_INTERVAL,
     CONTRACTED_POWER_SENSORS,
     DAILY_SENSORS,
+    DEFAULT_DECIMAL,
+    DEFAULT_ENABLE_15MIN,
+    DEFAULT_ENABLE_CONTRACTED_POWER,
+    DEFAULT_ENABLE_DAILY,
+    DEFAULT_ENABLE_SOUPORABA,
+    DEFAULT_ENABLE_TARIFF_BLOCKS,
+    DEFAULT_ENABLE_TOTAL,
+    DEFAULT_LOOKBACK_DAYS,
+    DEFAULT_UPDATE_INTERVAL,
     DOMAIN,
     FIFTEEN_MINUTE_SENSORS,
-    TARIFF_BLOCK_SENSORS,
     SOUPORABA_SENSORS,
+    TARIFF_BLOCK_SENSORS,
     TOTAL_REGISTER_SENSORS,
-    CONF_DECIMAL,
-    CONF_METER_ID,
+)
+from .moj_elektro_api import (
+    MojElektroApi,
+    MojElektroAuthError,
+    MojElektroError,
 )
 
+_LOGGER = logging.getLogger(__name__)
+
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
-PLATFORMS = [Platform.SENSOR]
+PLATFORMS = [Platform.SENSOR, Platform.BUTTON]
 
 
 def _expected_sensor_names() -> list[str]:
@@ -40,7 +70,8 @@ def _expected_sensor_names() -> list[str]:
 
 
 def _migrate_legacy_sensor_unique_ids(
-    hass: HomeAssistant, entry: ConfigEntry
+    hass: HomeAssistant,
+    entry: ConfigEntry,
 ) -> None:
     """Migrate legacy suffixed unique IDs without changing entity IDs."""
     meter_id = entry.data[CONF_METER_ID]
@@ -127,6 +158,81 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             )
 
     _migrate_legacy_sensor_unique_ids(hass, entry)
+
+    options = entry.options
+    meter_id = entry.data[CONF_METER_ID]
+    api = MojElektroApi(
+        entry.data[CONF_TOKEN],
+        meter_id,
+        options.get(
+            CONF_DECIMAL,
+            entry.data.get(CONF_DECIMAL, DEFAULT_DECIMAL),
+        ),
+        async_get_clientsession(hass),
+        lookback_days=options.get(
+            CONF_LOOKBACK_DAYS,
+            DEFAULT_LOOKBACK_DAYS,
+        ),
+        enable_15min=options.get(
+            CONF_ENABLE_15MIN,
+            DEFAULT_ENABLE_15MIN,
+        ),
+        enable_daily=options.get(
+            CONF_ENABLE_DAILY,
+            DEFAULT_ENABLE_DAILY,
+        ),
+        enable_total=options.get(
+            CONF_ENABLE_TOTAL,
+            DEFAULT_ENABLE_TOTAL,
+        ),
+        enable_tariff_blocks=options.get(
+            CONF_ENABLE_TARIFF_BLOCKS,
+            DEFAULT_ENABLE_TARIFF_BLOCKS,
+        ),
+        enable_contracted_power=options.get(
+            CONF_ENABLE_CONTRACTED_POWER,
+            DEFAULT_ENABLE_CONTRACTED_POWER,
+        ),
+        enable_souporaba=options.get(
+            CONF_ENABLE_SOUPORABA,
+            DEFAULT_ENABLE_SOUPORABA,
+        ),
+    )
+
+    async def async_update_data():
+        """Fetch data and translate API errors to Home Assistant errors."""
+        try:
+            return await api.getData()
+        except MojElektroAuthError as err:
+            raise ConfigEntryAuthFailed(
+                "Moj Elektro authentication failed"
+            ) from err
+        except MojElektroError as err:
+            raise UpdateFailed(str(err)) from err
+        except Exception as err:
+            raise UpdateFailed(
+                f"Unexpected Moj Elektro update error: {err}"
+            ) from err
+
+    coordinator = DataUpdateCoordinator(
+        hass,
+        _LOGGER,
+        name=f"{DOMAIN}_{meter_id}",
+        update_method=async_update_data,
+        update_interval=timedelta(
+            minutes=options.get(
+                CONF_UPDATE_INTERVAL,
+                DEFAULT_UPDATE_INTERVAL,
+            )
+        ),
+    )
+
+    await coordinator.async_config_entry_first_refresh()
+
+    hass.data.setdefault(DOMAIN, {})[entry.entry_id] = {
+        "api": api,
+        "coordinator": coordinator,
+    }
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True
