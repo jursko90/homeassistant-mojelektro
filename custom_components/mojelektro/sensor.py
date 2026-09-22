@@ -105,7 +105,7 @@ class MojElektroSensor(CoordinatorEntity, SensorEntity):
             "identifiers": {(DOMAIN, self.meter_id)},
             "name": "Moj Elektro",
             "manufacturer": "Moj Elektro",
-            "model": self.meter_id,
+            "model": "Moj Elektro API",
             "sw_version": VERSION,
             "entry_type": DeviceEntryType.SERVICE,
         }
