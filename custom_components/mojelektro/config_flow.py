@@ -19,6 +19,7 @@ from .const import (
     CONF_LOOKBACK_DAYS,
     CONF_METER_ID,
     CONF_TOKEN,
+    CONF_STALE_AFTER_HOURS,
     CONF_UPDATE_INTERVAL,
     DEFAULT_DECIMAL,
     DEFAULT_ENABLE_15MIN,
@@ -29,11 +30,14 @@ from .const import (
     DEFAULT_ENABLE_SOUPORABA,
     DEFAULT_LOOKBACK_DAYS,
     DEFAULT_UPDATE_INTERVAL,
+    DEFAULT_STALE_AFTER_HOURS,
     DOMAIN,
     MAX_LOOKBACK_DAYS,
     MAX_UPDATE_INTERVAL,
+    MAX_STALE_AFTER_HOURS,
     MIN_LOOKBACK_DAYS,
     MIN_UPDATE_INTERVAL,
+    MIN_STALE_AFTER_HOURS,
 )
 from .moj_elektro_api import (
     MojElektroApi,
@@ -234,6 +238,19 @@ class MojeElektroOptionsFlow(config_entries.OptionsFlowWithReload):
                         DEFAULT_ENABLE_SOUPORABA,
                     ),
                 ): bool,
+                vol.Required(
+                    CONF_STALE_AFTER_HOURS,
+                    default=current.get(
+                        CONF_STALE_AFTER_HOURS,
+                        DEFAULT_STALE_AFTER_HOURS,
+                    ),
+                ): vol.All(
+                    vol.Coerce(int),
+                    vol.Range(
+                        min=MIN_STALE_AFTER_HOURS,
+                        max=MAX_STALE_AFTER_HOURS,
+                    ),
+                ),
             }
         )
 
