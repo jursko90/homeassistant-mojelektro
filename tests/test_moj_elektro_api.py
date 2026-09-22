@@ -1019,3 +1019,74 @@ def test_negative_register_delta_is_not_published():
 
     assert "daily_input" not in result
     assert "monthly_input" not in result
+
+
+def test_tariff_day_duplicates_do_not_fake_completeness():
+    """Duplicate timestamps must not turn an incomplete day into a complete day."""
+    api = MojElektroApi("token", "meter", 4, None)
+    api._tag_by_reading_type = {"dynamic-a-plus": "A+"}
+
+    start = datetime(
+        2026,
+        9,
+        19,
+        0,
+        15,
+        tzinfo=timezone(timedelta(hours=2)),
+    )
+    readings = [
+        {
+            "timestamp": (start + timedelta(minutes=15 * index)).isoformat(),
+            "value": "1.0",
+        }
+        for index in range(95)
+    ]
+    readings.append(dict(readings[-1]))
+
+    result = api.consumption_by_block(
+        [
+            {
+                "readingType": "dynamic-a-plus",
+                "intervalReadings": readings,
+            }
+        ]
+    )
+
+    assert result == {}
+
+
+def test_tariff_day_rejects_off_grid_interval():
+    """A non-quarter-hour reading must not count toward day completeness."""
+    api = MojElektroApi("token", "meter", 4, None)
+    api._tag_by_reading_type = {"dynamic-a-plus": "A+"}
+
+    start = datetime(
+        2026,
+        9,
+        19,
+        0,
+        15,
+        tzinfo=timezone(timedelta(hours=2)),
+    )
+    readings = [
+        {
+            "timestamp": (start + timedelta(minutes=15 * index)).isoformat(),
+            "value": "1.0",
+        }
+        for index in range(95)
+    ]
+    readings.append(
+        {
+            "timestamp": "2026-09-19T12:07:00+02:00",
+            "value": "1.0",
+        }
+    )
+
+    assert api.consumption_by_block(
+        [
+            {
+                "readingType": "dynamic-a-plus",
+                "intervalReadings": readings,
+            }
+        ]
+    ) == {}
