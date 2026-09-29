@@ -16,7 +16,9 @@
     sl: {
       title: "Moj Elektro", subtitle: "Pregled energije", daily: "Zadnji dnevni odjem",
       monthly: "Mesečni odjem", total: "Skupni odjem", quarter: "Zadnjih 15 minut",
-      output: "Oddaja v omrežje", tariffs: "Tarifi v tem mesecu",
+      output: "Oddaja v omrežje", net: "Neto dnevni odjem", tariffs: "Tarifi v tem mesecu",
+      dailyOutput: "Zadnja dnevna oddaja", totalOutput: "Skupna oddaja",
+      cost: "Ocena mesečnega stroška energije", costInfo: "Samo energija; brez omrežnine, prispevkov in davkov.",
       peak: "Višja tarifa", offpeak: "Nižja tarifa", blocks: "Zadnji dnevni časovni bloki",
       block: "Blok",
       power: "Dogovorjena moč", history: "Spremembe dnevnega odjema v HA",
@@ -32,7 +34,9 @@
     en: {
       title: "Moj Elektro", subtitle: "Energy overview", daily: "Latest daily import",
       monthly: "Monthly import", total: "Total import", quarter: "Latest 15 minutes",
-      output: "Export to grid", tariffs: "Tariffs this month",
+      output: "Export to grid", net: "Net daily import", tariffs: "Tariffs this month",
+      dailyOutput: "Latest daily export", totalOutput: "Total export",
+      cost: "Estimated monthly energy cost", costInfo: "Energy only; excludes network charges, levies and taxes.",
       peak: "Peak tariff", offpeak: "Off-peak tariff", blocks: "Latest daily network blocks",
       block: "Block",
       power: "Contracted power", history: "Daily import changes in HA",
@@ -103,6 +107,12 @@
     setConfig(config) {
       if (config.meter_id !== undefined && typeof config.meter_id !== "string") {
         throw new Error("meter_id must be a string");
+      }
+      for (const key of ["price_vt", "price_mt"]) {
+        if (config[key] !== undefined &&
+            (typeof config[key] !== "number" || !Number.isFinite(config[key]) || config[key] < 0)) {
+          throw new Error(`${key} must be a non-negative number in EUR/kWh`);
+        }
       }
       this._config = { ...config };
       this._entities = null;
@@ -192,6 +202,12 @@
 
     _value(key) { return finiteState(this._hass?.states[this._entities?.[key]]); }
 
+    _sameSourceTime(first, second) {
+      const a = this._hass?.states[this._entities?.[first]]?.attributes?.source_timestamp;
+      const b = this._hass?.states[this._entities?.[second]]?.attributes?.source_timestamp;
+      return Boolean(a && b && Date.parse(a) === Date.parse(b));
+    }
+
     _number(value, digits = 2) {
       return value === null ? "—" : new Intl.NumberFormat(this._language(), {
         maximumFractionDigits: digits, minimumFractionDigits: digits,
@@ -226,9 +242,12 @@
     _render() {
       if (!this.shadowRoot || !this._config || !this._hass) return;
       const signature = JSON.stringify([
-        this._config.title, this._config.language, this._hass.language,
+        this._config.title, this._config.language, this._config.price_vt,
+        this._config.price_mt, this._hass.language,
         this._message, this._busy, this._refreshError, this._history,
-        this._entities, ...Object.values(this._entities || {}).map((id) => this._hass.states[id]?.state),
+        this._entities, ...Object.values(this._entities || {}).map((id) => [
+          this._hass.states[id]?.state, this._hass.states[id]?.attributes?.source_timestamp,
+        ]),
       ]);
       if (signature === this._lastRender) return;
       this._lastRender = signature;
@@ -244,6 +263,15 @@
       const hasBlocks = blocks.some((v) => v !== null);
       const hasPower = power.some((v) => v !== null);
       const output = this._value("daily_output");
+      const input = this._value("daily_input");
+      const monthlyPeak = this._value("monthly_input_peak");
+      const monthlyOffpeak = this._value("monthly_input_offpeak");
+      const estimatedCost = this._config.price_vt !== undefined && this._config.price_mt !== undefined &&
+        monthlyPeak !== null && monthlyOffpeak !== null &&
+        this._sameSourceTime("monthly_input_peak", "monthly_input_offpeak") ?
+        monthlyPeak * this._config.price_vt + monthlyOffpeak * this._config.price_mt : null;
+      const net = input !== null && output !== null &&
+        this._sameSourceTime("daily_input", "daily_output") ? input - output : null;
       const latest = this._hass.states[this._entities.last_published_reading]?.state;
       const latestTime = latest && !["unknown", "unavailable"].includes(latest) && !Number.isNaN(Date.parse(latest))
         ? new Date(latest).toLocaleString(this._language(), { dateStyle: "medium", timeStyle: "short" }) : t.noData;
@@ -266,6 +294,7 @@
           .metric span { display:block; min-height:2.4em; font-size:.79rem; color:var(--muted); }
           .metric strong { display:inline-block; margin-top:7px; font-size:clamp(1.1rem,2.6vw,1.7rem); letter-spacing:-.03em; word-break:break-word; }
           .metric small { margin-left:4px; color:var(--muted); }
+          .cost { font-size:1.6rem; font-weight:700; color:var(--accent2); }
           .sections { display:grid; grid-template-columns:1fr 1fr; gap:22px; margin-top:22px; }
           section { min-width:0; border-top:1px solid var(--divider-color,rgba(120,130,140,.2)); padding-top:19px; }
           .split-label { display:flex; justify-content:space-between; gap:8px; font-size:.8rem; margin-bottom:10px; }
@@ -290,8 +319,9 @@
           <header><div><h2>${title}</h2><div class="sub">${t.subtitle}</div></div>${staleBadge}</header>
           <div class="metrics">${this._metric(t.daily, "daily_input")}${this._metric(t.monthly, "monthly_input")}${this._metric(t.total, "total_input")}${this._metric(t.quarter, "15min_input")}</div>
           <div class="sections">
-            ${this._split(t.tariffs, this._value("monthly_input_peak"), this._value("monthly_input_offpeak"), t.peak, t.offpeak)}
-            ${output !== null ? `<section><h3>${t.output}</h3><div class="metrics" style="grid-template-columns:1fr 1fr">${this._metric(t.daily,"daily_output")}${this._metric(t.total,"total_output")}</div></section>` : ""}
+            ${this._split(t.tariffs, monthlyPeak, monthlyOffpeak, t.peak, t.offpeak)}
+            ${output !== null ? `<section><h3>${t.output}</h3><div class="metrics" style="grid-template-columns:repeat(2,minmax(0,1fr))">${this._metric(t.dailyOutput,"daily_output")}${this._metric(t.totalOutput,"total_output")}${net !== null ? `<div class="metric"><span>${t.net}</span><strong>${this._number(net)}</strong><small>kWh</small></div>` : ""}</div></section>` : ""}
+            ${estimatedCost !== null ? `<section><h3>${t.cost}</h3><div class="cost">${new Intl.NumberFormat(this._language(), { style: "currency", currency: "EUR" }).format(estimatedCost)}</div><p class="hint">${t.costInfo}</p></section>` : ""}
             ${hasBlocks ? `<section><h3>${t.blocks}</h3><div class="rows">${blocks.map((v,i) => `<div class="row"><span>${t.block} ${i + 1}</span><div class="rail"><div class="fill" style="width:${Math.max(0,Math.min(100,(v || 0) / Math.max(1,...blocks.filter((n) => n !== null)) * 100))}%"></div></div><span>${this._number(v)} kWh</span></div>`).join("")}</div></section>` : ""}
             ${hasPower ? `<section><h3>${t.power}</h3><div class="rows">${power.map((v,i) => `<div class="row"><span>${t.block} ${i + 1}</span><div class="rail"><div class="fill" style="width:${Math.max(0,Math.min(100,(v || 0) / Math.max(1,...power.filter((n) => n !== null)) * 100))}%"></div></div><span>${this._number(v)} kW</span></div>`).join("")}</div></section>` : ""}
             <section class="history"><h3>${t.history}</h3>${this._historyChart(t)}</section>

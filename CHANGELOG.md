@@ -10,6 +10,7 @@
 - show recorded daily sensor changes from Home Assistant history without introducing another Moj Elektro API poll or a parallel data store
 - resolve renamed entity IDs through Home Assistant's entity registry and support an explicit metering point when multiple entries exist
 - include Slovenian and English labels and a card picker entry
+- optionally estimate monthly energy cost from user-supplied VT/MT prices and show daily net import when export readings exist
 
 ### API refresh
 

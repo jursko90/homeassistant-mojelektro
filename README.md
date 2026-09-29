@@ -136,6 +136,8 @@ After installing this development build and restarting Home Assistant, add a car
 ```yaml
 type: custom:mojelektro-energy-card
 title: Energija doma
+price_vt: 0.20
+price_mt: 0.10
 ```
 
 If you have more than one Moj Elektro metering point, set its configured EIMM in the card YAML:
@@ -146,6 +148,8 @@ meter_id: "4-123456"
 ```
 
 The card follows entities even when you have renamed their Home Assistant entity IDs. It shows only enabled sensor groups; a missing or unavailable reading is displayed as a dash. The import history chart reflects changes recorded by Home Assistant in the previous 31 days. Its dates are **dates of HA state changes**, since Moj Elektro can publish measurements later; it is not a backfilled daily reading calendar. History needs Home Assistant recorder/history enabled. The latest 15-minute reading also reflects the Moj Elektro publication delay.
+
+The optional `price_vt` and `price_mt` values are prices per kWh in EUR. Omit them if you do not want a cost estimate. The estimate covers energy only; it excludes network charges, levies and taxes. If export is available, the card also shows the net daily import (negative means net export). The card only combines readings whose source timestamps match, to avoid mixing days published at different times.
 
 The card is loaded automatically with the integration. There is no separate HACS repository, dashboard resource configuration or additional token to enter. The existing **Refresh data** button remains available through the card and follows the same API refresh path as the entity button.
 

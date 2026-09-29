@@ -98,3 +98,35 @@ test("card renders live entity values and keeps missing readings blank", () => {
   assert.match(card.shadowRoot.innerHTML, /Hi &lt;script&gt;/);
   assert.doesNotMatch(card.shadowRoot.innerHTML, /<script>/);
 });
+
+test("optional prices and net export use numeric HA readings", () => {
+  const Card = elements.get("mojelektro-energy-card");
+  const card = new Card();
+  assert.throws(() => card.setConfig({ price_vt: -0.1 }), /price_vt/);
+  assert.throws(() => card.setConfig({ price_mt: "0.1" }), /price_mt/);
+  card.setConfig({ price_vt: 0.2, price_mt: 0.1 });
+  card._entities = {
+    daily_input: "sensor.daily_in", daily_output: "sensor.daily_out",
+    monthly_input_peak: "sensor.monthly_vt", monthly_input_offpeak: "sensor.monthly_mt",
+  };
+  card._hass = {
+    language: "sl",
+    states: {
+      "sensor.daily_in": { state: "4", attributes: { source_timestamp: "2026-09-22T00:00:00+02:00" } },
+      "sensor.daily_out": { state: "6", attributes: { source_timestamp: "2026-09-21T22:00:00Z" } },
+      "sensor.monthly_vt": { state: "10", attributes: { source_timestamp: "2026-09-22T00:00:00+02:00" } },
+      "sensor.monthly_mt": { state: "20", attributes: { source_timestamp: "2026-09-22T00:00:00+02:00" } },
+    },
+  };
+  card._render();
+  assert.match(card.shadowRoot.innerHTML, /Neto dnevni odjem<\/span><strong>[−-]2,00/);
+  assert.match(card.shadowRoot.innerHTML, /Zadnja dnevna oddaja/);
+  assert.match(card.shadowRoot.innerHTML, /Ocena mesečnega stroška energije/);
+  assert.match(card.shadowRoot.innerHTML, /4,00\s*€/);
+  assert.match(card.shadowRoot.innerHTML, /brez omrežnine/);
+  card._hass.states["sensor.daily_out"].attributes.source_timestamp = "2026-09-20T00:00:00+02:00";
+  card._hass.states["sensor.monthly_mt"].attributes.source_timestamp = "2026-09-20T00:00:00+02:00";
+  card._render();
+  assert.doesNotMatch(card.shadowRoot.innerHTML, /Neto dnevni odjem/);
+  assert.doesNotMatch(card.shadowRoot.innerHTML, /Ocena mesečnega stroška energije/);
+});
