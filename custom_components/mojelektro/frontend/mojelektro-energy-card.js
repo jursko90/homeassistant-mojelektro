@@ -59,7 +59,8 @@
 
   function finiteState(state) {
     if (!state || state.state === "" || state.state === null ||
-        state.state === "unknown" || state.state === "unavailable") return null;
+        state.state === "unknown" || state.state === "unavailable" ||
+        (typeof state.state === "string" && !state.state.trim())) return null;
     const value = Number(state.state);
     return Number.isFinite(value) ? value : null;
   }

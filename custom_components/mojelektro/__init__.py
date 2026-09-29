@@ -137,7 +137,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     )
     frontend.add_extra_js_url(
         hass,
-        "/mojelektro-dashboard/mojelektro-energy-card.js?v=0.3.0-beta.4",
+        "/mojelektro-dashboard/mojelektro-energy-card.js?v=0.3.0-beta.5",
     )
     return True
 

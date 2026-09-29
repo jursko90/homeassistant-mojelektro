@@ -147,9 +147,9 @@ type: custom:mojelektro-energy-card
 meter_id: "4-123456"
 ```
 
-Add a separate Moj Elektro service for each EIMM under **Settings → Devices & services → Add integration → Moj Elektro**. The same API token can be used when it has access to both metering points. Each service has its own device, entities, refresh button and history; adding a second EIMM does not replace the first. Make one card per meter and set `meter_id` in each card. You can rename the services and devices to “Hiša” and “Drugi števec” in Home Assistant. If the currently configured EIMM belongs to the wrong meter, add the correct one first, confirm its readings, and only then remove the unwanted service if you no longer need its history. Do not change an existing entry's EIMM in storage: its unique IDs and recorded history belong to the original meter.
+Add a separate Moj Elektro service for each EIMM under **Settings → Devices & services → Add integration → Moj Elektro**. The same API token can be used when it has access to both metering points. Each service has its own device, entities, refresh button and history; adding a second EIMM does not replace the first. Make one card per meter and set `meter_id` in each card. Each device shows its EIMM in Home Assistant so you can tell them apart; you can rename the services and devices to “Hiša” and “Drugi števec”. If the currently configured EIMM belongs to the wrong meter, add the correct one first, confirm its readings, and only then remove the unwanted service if you no longer need its history. Do not change an existing entry's EIMM in storage: its unique IDs and recorded history belong to the original meter.
 
-The card follows entities even when you have renamed their Home Assistant entity IDs. It shows only enabled sensor groups; a missing or unavailable reading is displayed as a dash. The import history chart reflects changes recorded by Home Assistant in the previous 31 days. Its dates are **dates of HA state changes**, since Moj Elektro can publish measurements later; it is not a backfilled daily reading calendar. History needs Home Assistant recorder/history enabled. The latest 15-minute reading also reflects the Moj Elektro publication delay.
+Use the card first in a normal Sections or Masonry dashboard view; a cold browser load in a Panel view may race Home Assistant card registration. The card follows entities even when you have renamed their Home Assistant entity IDs. It shows only enabled sensor groups; a missing or unavailable reading is displayed as a dash. The import history chart reflects changes recorded by Home Assistant in the previous 31 days. Its dates are **dates of HA state changes**, since Moj Elektro can publish measurements later; it is not a backfilled daily reading calendar. History needs Home Assistant recorder/history enabled. The latest 15-minute reading also reflects the Moj Elektro publication delay.
 
 The optional `price_vt` and `price_mt` values are prices per kWh in EUR. Omit them if you do not want a cost estimate. The estimate covers energy only; it excludes network charges, levies and taxes. If export is available, the card also shows the net daily import (negative means net export). The card only combines readings whose source timestamps match, to avoid mixing days published at different times.
 
@@ -174,7 +174,7 @@ The card is loaded automatically with the integration. There is no separate HACS
 
 ### 0.3.x — Moj Elektro API refresh
 
-> Current development build: **0.3.0-beta.4**. Minimum tested Home Assistant version: **2026.9.0**. The stable 0.2.7 release remains on `main` until beta validation is complete.
+> Current development build: **0.3.0-beta.5**. Minimum tested Home Assistant version: **2026.9.0**. The stable 0.2.7 release remains on `main` until beta validation is complete.
 
 > Development baseline for 0.3.0: **Home Assistant 2026.9+**. The stable 0.2.7 release keeps its existing baseline until 0.3.0 is released.
 
@@ -198,7 +198,7 @@ The card is loaded automatically with the integration. There is no separate HACS
 - [x] move shared runtime state to `ConfigEntry.runtime_data`
 - [x] correct Slovenian network tariff schedule and add regression coverage
 - [x] add privacy-safe technical metadata diagnostics
-- [ ] validate the optional energy dashboard in a real Home Assistant browser before the next beta release
+- [ ] validate the optional energy dashboard in a real Home Assistant browser before final 0.3.0 release
 
 ### Later
 

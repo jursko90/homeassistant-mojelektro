@@ -46,7 +46,7 @@ class MojElektroRefreshButton(CoordinatorEntity, ButtonEntity):
         """Return the Moj Elektro device."""
         return {
             "identifiers": {(DOMAIN, self.meter_id)},
-            "name": "Moj Elektro",
+            "name": f"Moj Elektro {self.meter_id}",
             "manufacturer": "Moj Elektro",
             "model": "Moj Elektro API",
             "sw_version": VERSION,

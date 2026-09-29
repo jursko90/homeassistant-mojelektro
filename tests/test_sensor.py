@@ -37,3 +37,14 @@ def test_timestamp_sensor_last_reset_does_not_require_state_class():
 
     assert sensor.state_class is None
     assert sensor.last_reset is None
+
+
+def test_two_meters_have_distinct_device_identifiers_and_names():
+    """Two EIMMs must not be grouped under an indistinguishable device."""
+    first = object.__new__(MojElektroSensor)
+    second = object.__new__(MojElektroSensor)
+    first.meter_id = "4-111"
+    second.meter_id = "4-222"
+
+    assert first.device_info["identifiers"] != second.device_info["identifiers"]
+    assert first.device_info["name"] != second.device_info["name"]

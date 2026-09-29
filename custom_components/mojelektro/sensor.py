@@ -153,7 +153,7 @@ class MojElektroSensor(CoordinatorEntity, SensorEntity):
         """Return device information for grouping sensors under one device."""
         return {
             "identifiers": {(DOMAIN, self.meter_id)},
-            "name": "Moj Elektro",
+            "name": f"Moj Elektro {self.meter_id}",
             "manufacturer": "Moj Elektro",
             "model": "Moj Elektro API",
             "sw_version": VERSION,

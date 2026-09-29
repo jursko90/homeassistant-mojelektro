@@ -9,6 +9,7 @@
 - show latest daily and monthly import, cumulative totals, latest 15-minute energy, export, VT/MT split, tariff blocks, contracted power and data freshness where available
 - show recorded daily sensor changes from Home Assistant history without introducing another Moj Elektro API poll or a parallel data store
 - resolve renamed entity IDs through Home Assistant's entity registry and support an explicit metering point when multiple entries exist
+- display the configured EIMM in each device name so multiple metering points remain identifiable
 - include Slovenian and English labels and a card picker entry
 - optionally estimate monthly energy cost from user-supplied VT/MT prices and show daily net import when export readings exist
 

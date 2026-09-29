@@ -34,7 +34,7 @@ test("card is optional and registered with the Home Assistant picker", () => {
 });
 
 test("empty, unavailable and nonfinite readings never become zero", () => {
-  for (const state of ["", "unknown", "unavailable", "NaN", "Infinity"]) {
+  for (const state of ["", "   ", "unknown", "unavailable", "NaN", "Infinity"]) {
     assert.equal(finiteState({ state }), null);
   }
   assert.equal(finiteState({ state: "0" }), 0);
