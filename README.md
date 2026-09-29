@@ -127,6 +127,28 @@ https://docs.informatika.si/mojelektro/api/
 
 No `configuration.yaml` entry is required.
 
+## Optional energy dashboard (development branch)
+
+The visual overview is an **optional Lovelace card**. It uses the existing Moj Elektro entities and Home Assistant history. Installing the integration does not create or alter any dashboard. It does not store a second copy of the readings or make additional calls to the Moj Elektro API when opened.
+
+After installing this development build and restarting Home Assistant, add a card to any dashboard using the card picker (**Moj Elektro energy overview**) or the manual YAML editor:
+
+```yaml
+type: custom:mojelektro-energy-card
+title: Energija doma
+```
+
+If you have more than one Moj Elektro metering point, set its configured EIMM in the card YAML:
+
+```yaml
+type: custom:mojelektro-energy-card
+meter_id: "4-123456"
+```
+
+The card follows entities even when you have renamed their Home Assistant entity IDs. It shows only enabled sensor groups; a missing or unavailable reading is displayed as a dash. The import history chart reflects changes recorded by Home Assistant in the previous 31 days. Its dates are **dates of HA state changes**, since Moj Elektro can publish measurements later; it is not a backfilled daily reading calendar. History needs Home Assistant recorder/history enabled. The latest 15-minute reading also reflects the Moj Elektro publication delay.
+
+The card is loaded automatically with the integration. There is no separate HACS repository, dashboard resource configuration or additional token to enter. The existing **Refresh data** button remains available through the card and follows the same API refresh path as the entity button.
+
 ## Roadmap
 
 ### 0.2.x — compatibility and stability
@@ -170,6 +192,7 @@ No `configuration.yaml` entry is required.
 - [x] move shared runtime state to `ConfigEntry.runtime_data`
 - [x] correct Slovenian network tariff schedule and add regression coverage
 - [x] add privacy-safe technical metadata diagnostics
+- [ ] validate the optional energy dashboard in a real Home Assistant browser before the next beta release
 
 ### Later
 

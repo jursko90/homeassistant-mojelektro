@@ -8,6 +8,7 @@ on:
   pull_request:
     branches:
       - main
+      - feat/0.3.0-api-refresh
 
 permissions:
   contents: read
@@ -38,6 +39,11 @@ jobs:
 
       - name: Run regression tests
         run: python -m pytest -q tests
+
+      - name: Check optional dashboard JavaScript
+        run: |
+          node --check custom_components/mojelektro/frontend/mojelektro-energy-card.js
+          node --test tests/test_dashboard.mjs
 
       - name: Check for Python errors
         run: |
@@ -83,4 +89,3 @@ jobs:
           path: dist/mojelektro-${{ steps.beta_zip.outputs.version }}.zip
           retention-days: 7
           if-no-files-found: error
-

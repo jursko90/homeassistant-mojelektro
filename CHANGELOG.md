@@ -3,6 +3,14 @@
 
 ## [0.3.0] - Unreleased
 
+### Optional visual dashboard (development branch)
+
+- add a responsive Lovelace energy card backed by the existing HA entities; users choose whether to place it on a dashboard
+- show latest daily and monthly import, cumulative totals, latest 15-minute energy, export, VT/MT split, tariff blocks, contracted power and data freshness where available
+- show recorded daily sensor changes from Home Assistant history without introducing another Moj Elektro API poll or a parallel data store
+- resolve renamed entity IDs through Home Assistant's entity registry and support an explicit metering point when multiple entries exist
+- include Slovenian and English labels and a card picker entry
+
 ### API refresh
 
 - remove the hard-coded Moj Elektro `readingType` identifier catalogue

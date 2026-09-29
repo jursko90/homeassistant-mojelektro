@@ -5,7 +5,7 @@
     "@jursko90"
   ],
   "config_flow": true,
-  "dependencies": [],
+  "dependencies": ["frontend", "http"],
   "documentation": "https://github.com/jursko90/homeassistant-mojelektro",
   "integration_type": "service",
   "iot_class": "cloud_polling",
