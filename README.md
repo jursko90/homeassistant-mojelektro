@@ -127,6 +127,34 @@ https://docs.informatika.si/mojelektro/api/
 
 No `configuration.yaml` entry is required.
 
+## Optional energy dashboard (development branch)
+
+The visual overview is an **optional Lovelace card**. It uses the existing Moj Elektro entities and Home Assistant history. Installing the integration does not create or alter any dashboard. It does not store a second copy of the readings or make additional calls to the Moj Elektro API when opened.
+
+After installing this development build and restarting Home Assistant, add a card to any dashboard using the card picker (**Moj Elektro energy overview**) or the manual YAML editor:
+
+```yaml
+type: custom:mojelektro-energy-card
+title: Energija doma
+price_vt: 0.20
+price_mt: 0.10
+```
+
+If you have more than one Moj Elektro metering point, set its configured EIMM in the card YAML:
+
+```yaml
+type: custom:mojelektro-energy-card
+meter_id: "4-123456"
+```
+
+Add a separate Moj Elektro service for each EIMM under **Settings → Devices & services → Add integration → Moj Elektro**. The same API token can be used when it has access to both metering points. Each service has its own device, entities, refresh button and history; adding a second EIMM does not replace the first. Make one card per meter and set `meter_id` in each card. You can rename the services and devices to “Hiša” and “Drugi števec” in Home Assistant. If the currently configured EIMM belongs to the wrong meter, add the correct one first, confirm its readings, and only then remove the unwanted service if you no longer need its history. Do not change an existing entry's EIMM in storage: its unique IDs and recorded history belong to the original meter.
+
+The card follows entities even when you have renamed their Home Assistant entity IDs. It shows only enabled sensor groups; a missing or unavailable reading is displayed as a dash. The import history chart reflects changes recorded by Home Assistant in the previous 31 days. Its dates are **dates of HA state changes**, since Moj Elektro can publish measurements later; it is not a backfilled daily reading calendar. History needs Home Assistant recorder/history enabled. The latest 15-minute reading also reflects the Moj Elektro publication delay.
+
+The optional `price_vt` and `price_mt` values are prices per kWh in EUR. Omit them if you do not want a cost estimate. The estimate covers energy only; it excludes network charges, levies and taxes. If export is available, the card also shows the net daily import (negative means net export). The card only combines readings whose source timestamps match, to avoid mixing days published at different times.
+
+The card is loaded automatically with the integration. There is no separate HACS repository, dashboard resource configuration or additional token to enter. The existing **Refresh data** button remains available through the card and follows the same API refresh path as the entity button.
+
 ## Roadmap
 
 ### 0.2.x — compatibility and stability
@@ -146,7 +174,7 @@ No `configuration.yaml` entry is required.
 
 ### 0.3.x — Moj Elektro API refresh
 
-> Current development build: **0.3.0-beta.3**. Minimum tested Home Assistant version: **2026.9.0**. The stable 0.2.7 release remains on `main` until beta validation is complete.
+> Current development build: **0.3.0-beta.4**. Minimum tested Home Assistant version: **2026.9.0**. The stable 0.2.7 release remains on `main` until beta validation is complete.
 
 > Development baseline for 0.3.0: **Home Assistant 2026.9+**. The stable 0.2.7 release keeps its existing baseline until 0.3.0 is released.
 
@@ -170,6 +198,7 @@ No `configuration.yaml` entry is required.
 - [x] move shared runtime state to `ConfigEntry.runtime_data`
 - [x] correct Slovenian network tariff schedule and add regression coverage
 - [x] add privacy-safe technical metadata diagnostics
+- [ ] validate the optional energy dashboard in a real Home Assistant browser before the next beta release
 
 ### Later
 

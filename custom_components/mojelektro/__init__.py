@@ -3,8 +3,11 @@
 from dataclasses import dataclass
 from datetime import timedelta
 import logging
+from pathlib import Path
 import re
 
+from homeassistant.components import frontend
+from homeassistant.components.http import StaticPathConfig
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
@@ -123,6 +126,19 @@ def _migrate_legacy_sensor_unique_ids(
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     """Set up the integration domain."""
+    await hass.http.async_register_static_paths(
+        [
+            StaticPathConfig(
+                "/mojelektro-dashboard",
+                str(Path(__file__).parent / "frontend"),
+                False,
+            )
+        ]
+    )
+    frontend.add_extra_js_url(
+        hass,
+        "/mojelektro-dashboard/mojelektro-energy-card.js?v=0.3.0-beta.4",
+    )
     return True
 
 
