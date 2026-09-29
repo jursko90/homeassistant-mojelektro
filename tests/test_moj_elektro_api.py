@@ -2,6 +2,7 @@
 
 import asyncio
 from datetime import date, datetime, time, timedelta, timezone
+from unittest.mock import patch
 from zoneinfo import ZoneInfo
 
 import aiohttp
@@ -15,6 +16,7 @@ from custom_components.mojelektro.moj_elektro_api import (
     MojElektroAuthError,
     MojElektroConnectionError,
     MojElektroRequestError,
+    _slovenian_today,
 )
 
 
@@ -53,6 +55,51 @@ class StubMojElektroApi(MojElektroApi):
             return {"intervalBlocks": []}
 
         raise AssertionError(f"Unexpected path: {path}")
+
+
+def test_query_calendar_day_uses_slovenia_at_utc_month_boundary():
+    """API date windows must follow Slovenia even if HA uses UTC."""
+    api = StubMojElektroApi()
+    api.enable_daily = False
+    api.enable_total = False
+    api.enable_tariff_blocks = False
+    api.enable_contracted_power = False
+
+    with patch(
+        "custom_components.mojelektro.moj_elektro_api.dt_util.now",
+        return_value=datetime(2026, 10, 31, 23, 30, tzinfo=timezone.utc),
+    ):
+        assert _slovenian_today() == date(2026, 11, 1)
+        asyncio.run(api.getData())
+
+    _, params = next(
+        call for call in api.calls if call[0] == "/meter-readings"
+    )
+    assert ("endTime", "2026-11-01") in params
+    assert (
+        "startTime",
+        (date(2026, 11, 1) - timedelta(days=api.lookback_days)).isoformat(),
+    ) in params
+
+
+def test_contracted_power_validity_uses_slovenian_date():
+    """New validity period begins at Slovenian midnight, not UTC midnight."""
+    with patch(
+        "custom_components.mojelektro.moj_elektro_api.dt_util.now",
+        return_value=datetime(2026, 10, 31, 23, 30, tzinfo=timezone.utc),
+    ):
+        result = MojElektroApi._extract_casovni_bloki(
+            [
+                {
+                    "datumOd": "2026-11-01",
+                    "datumDo": "2026-12-31",
+                    "veljavnost": True,
+                    "casovniBlok1": 7.2,
+                }
+            ]
+        )
+
+    assert result["casovni_blok_1"] == 7.2
 
 
 def test_reading_type_catalog_is_discovered_at_runtime():

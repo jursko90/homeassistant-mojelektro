@@ -43,6 +43,11 @@ from .tariff import (
 _LOGGER = logging.getLogger(__name__)
 
 
+def _slovenian_today() -> date:
+    """Return the calendar date used by Moj Elektro regardless of HA time zone."""
+    return dt_util.now().astimezone(SLOVENIA_TIME_ZONE).date()
+
+
 class MojElektroError(Exception):
     """Base Moj Elektro API error."""
 
@@ -192,7 +197,7 @@ class MojElektroApi:
             if "A+" in reading_types
             else next(iter(reading_types))
         )
-        today = dt_util.now().date()
+        today = _slovenian_today()
         await self.get_meter_readings(
             [tag],
             start_date=today - timedelta(days=1),
@@ -599,7 +604,7 @@ class MojElektroApi:
 
     async def getData(self) -> dict[str, Any]:
         """Fetch the configured sensor groups and preserve prior good values."""
-        today = dt_util.now().date()
+        today = _slovenian_today()
         sensor_return: dict[str, Any] = {}
 
         fifteen_data: list[dict[str, Any]] = []
@@ -1258,7 +1263,7 @@ class MojElektroApi:
 
     async def get_casovni_blok(self) -> dict[str, float | None]:
         """Get currently valid contracted powers for tariff blocks."""
-        current_date = dt_util.now().date()
+        current_date = _slovenian_today()
         if self._contracted_power_cache_date == current_date:
             return dict(self._contracted_power_cache)
 
@@ -1299,7 +1304,7 @@ class MojElektroApi:
     @staticmethod
     def _extract_casovni_bloki(dogovorjene_moci) -> dict[str, float | None]:
         """Extract contracted powers valid on the current date."""
-        current_date = dt_util.now().date()
+        current_date = _slovenian_today()
 
         if not isinstance(dogovorjene_moci, list):
             return {}

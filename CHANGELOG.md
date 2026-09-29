@@ -44,7 +44,7 @@
 - correct sensor state classes: interval/daily/monthly values use reset-aware totals, cumulative meter registers use increasing totals, and contracted power uses measurement semantics
 - calculate tariff-block totals from the latest complete 15-minute day only (92/96/100 intervals), avoiding partial overnight data and multi-day double counting
 - correct the Slovenian network tariff hour boundaries against the current Energy Agency act and isolate the tariff/holiday rules in a dedicated tested module
-- use the Home Assistant timezone for date boundaries instead of the host/container timezone
+- use the Slovenian timezone for API date windows and contracted-power validity, regardless of the Home Assistant timezone
 - add privacy-safe diagnostics that redact token and EIMM and never include measurement values
 - add opt-in privacy-safe `souporaba` status-count sensors while keeping EIMM/GSRN/contact details out of entity states
 - add API methods for souporaba detail and network-charge overview without exposing those sensitive payloads by default
