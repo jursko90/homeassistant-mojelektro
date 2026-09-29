@@ -1,0 +1,85 @@
+name: Bug report
+description: Report a reproducible problem with the Moj Elektro integration
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a problem.
+
+        **Never paste your Moj Elektro API token, EIMM, GSRN, address, owner/contact data, or unreviewed diagnostics into a public issue.**
+        The 0.3.0 diagnostics are designed to redact credentials and measurement values, but please still review the file before attaching it.
+
+  - type: input
+    id: ha_version
+    attributes:
+      label: Home Assistant version
+      placeholder: "2026.9.x"
+    validations:
+      required: true
+
+  - type: input
+    id: integration_version
+    attributes:
+      label: Moj Elektro integration version / commit
+      placeholder: "0.3.0 beta / commit SHA"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: install_type
+    attributes:
+      label: Installation type
+      options:
+        - HACS
+        - Manual copy
+        - Development/beta ZIP
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What happened?
+      description: Describe the expected and actual behavior.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. ...
+        2. ...
+        3. ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant Home Assistant logs
+      description: Remove/redact any personal identifiers before posting.
+      render: text
+
+  - type: textarea
+    id: entities
+    attributes:
+      label: Affected entity IDs
+      description: Entity IDs are useful; do not include API tokens or raw meter identifiers.
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Pre-submit checks
+      options:
+        - label: I restarted/reloaded the integration and the issue still occurs.
+          required: true
+        - label: I checked that I am not posting an API token or other private identifiers.
+          required: true
+        - label: I checked existing open issues for the same problem.
+          required: true
